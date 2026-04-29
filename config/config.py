@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+from datetime import timedelta
 
 class Settings(BaseSettings):
     database_url: str
@@ -24,6 +25,12 @@ class Settings(BaseSettings):
     expiry_max_days: int = 100 # ignore markets expiring beyond 6 months
 
     aws_region_name: str
+
+    dag_default_args={
+        "owner" : "pss",
+        "retries": 2,
+        "retry_delay": timedelta(minutes=2),
+    }
 
     model_config = SettingsConfigDict(
         env_file = Path(__file__).parent.parent / ".env",

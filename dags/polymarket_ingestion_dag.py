@@ -2,6 +2,7 @@ from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import logging
+from config.config import settings
 
 from dags.shared.ingestion_tasks import task_fetch_and_archive, task_validate, task_load_postgres
 
@@ -12,15 +13,9 @@ def task_fetch_archive(**context):
     from src.pss.ingestion.polymarket import PolymarketFetcher
     return task_fetch_and_archive(PolymarketFetcher(), **context)
 
-default_args = {
-    "owner" : "pss",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=2),
-}
-
 with DAG (
     dag_id = "pss_polymarket_ingestion",
-    default_args=default_args,
+    default_args=settings.dag_default_args,
     description="Layer 1 - ingest active markets from Polymarket and Kalshi",
     schedule_interval=timedelta(minutes=15),
     start_date=datetime(2026,1,1),
