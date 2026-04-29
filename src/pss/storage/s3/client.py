@@ -49,7 +49,7 @@ class S3Client(Client):
         return self._download_markets(key, ValidatedMarket)
 
     # private
-    def _download_markets(self, key: str, market_class: MarketClass):
+    def _download_markets(self, key: str, market_class: MarketClass) -> list[Market]:
         if not key:
             return []
         try:

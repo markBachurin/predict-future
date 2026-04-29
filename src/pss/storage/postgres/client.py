@@ -5,9 +5,12 @@ from config.config import settings
 from src.pss.datatypes.raw_market import RawMarket
 from src.pss.datatypes.validated_market import ValidatedMarket
 from src.pss.storage.shared.client import Client
+from typing import Union
+
+Market = Union[RawMarket, ValidatedMarket]
 
 class PostgresClient(Client):
-    def upload_markets(self, markets: list[RawMarket]) -> list[str]:
+    def upload_markets(self, markets: list[Market]) -> list[str]:
         if not markets:
             return []
 
