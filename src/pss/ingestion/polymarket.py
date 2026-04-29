@@ -6,7 +6,8 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 from config.config import settings
-from src.pss.ingestion.shared.base import BaseFetcher, RawMarket
+from src.pss.ingestion.shared.base import BaseFetcher
+from src.pss.datatypes.raw_market import RawMarket
 
 logger = logging.getLogger(__name__)
 

@@ -2,11 +2,11 @@ import psycopg2
 from psycopg2.extras import execute_values, Json
 from contextlib import contextmanager
 from config.config import settings
-from src.pss.ingestion.shared.base import RawMarket
+from src.pss.datatypes.raw_market import RawMarket
+from src.pss.datatypes.validated_market import ValidatedMarket
 from src.pss.storage.shared.client import Client
-from typing import Any
 
-class Postgres_Client(Client):
+class PostgresClient(Client):
     def upload_markets(self, markets: list[RawMarket]) -> list[str]:
         if not markets:
             return []
@@ -29,7 +29,7 @@ class Postgres_Client(Client):
                 )
                 return [str(row[0]) for row in rows]
 
-    def upsert_market(self, raw_id: str | Any, market: RawMarket, is_valid: bool) -> str | None:
+    def upsert_market(self, raw_id: str, market: ValidatedMarket, is_valid: bool) -> str | None:
         if not market or not raw_id:
             return None
 
@@ -58,7 +58,7 @@ class Postgres_Client(Client):
                 ))
                 return  str(cur.fetchone()[0])
 
-    def insert_snapshot(self, market_id: str | Any, market: RawMarket) -> str | None:
+    def insert_snapshot(self, market_id: str, market: ValidatedMarket) -> str | None:
         if not market_id or not market:
             return None
         with self._get_conn() as conn:

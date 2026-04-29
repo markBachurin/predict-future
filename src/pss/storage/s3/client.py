@@ -2,15 +2,19 @@ import json
 import boto3
 from datetime import datetime, timezone
 from src.pss.storage.shared.client import Client
-from src.pss.ingestion.shared.base import RawMarket
+from src.pss.datatypes.raw_market import RawMarket
+from src.pss.datatypes.validated_market import ValidatedMarket
 from config.config import settings
 from botocore.exceptions import ClientError
 import logging
+from typing import Union
+
+Market = Union[RawMarket, ValidatedMarket]
 
 logger = logging.getLogger(__name__)
 
 class S3Client(Client):
-    def upload_markets(self, markets: list[RawMarket]) -> bool:
+    def upload_markets(self, markets: list[Market]) -> bool:
         if not markets:
             return False
 
@@ -49,7 +53,7 @@ class S3Client(Client):
         )
 
     @staticmethod
-    def _serialize(markets: list[RawMarket]) -> list[dict]:
+    def _serialize(markets: list[Market]) -> list[dict]:
         return [
             {
                 "source": market.source,
