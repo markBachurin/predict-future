@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ingestion_interval_minutes: int = 15
     expiry_max_days: int = 100 # ignore markets expiring beyond 6 months
 
-    region_name: str
+    aws_region_name: str
 
     model_config = SettingsConfigDict(
         env_file = Path(__file__).parent.parent / ".env",
