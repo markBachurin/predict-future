@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 from config.config import settings
-from src.pss.ingestion.base import BaseFetcher, RawMarket
+from src.pss.ingestion.shared.base import BaseFetcher, RawMarket
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +14,8 @@ SIGNAL_KEYWORDS = {"economics", "finance", "crypto", "politics", "technology", "
 
 class PolymarketFetcher(BaseFetcher):
     def __init__(self):
-        self.base_url = settings.polymarket_base_url
-        self.volume_min = settings.polymarket_volume_min
-        self.page_limit = settings.polymarket_page_limit
-        self.expiry_max = datetime.now(timezone.utc) + timedelta(days=settings.expiry_max_days)
         self.session = requests.Session()
-
+        self._tag_ids: list[str] | None = None
 
     def fetch_active_markets(self) -> list[RawMarket]:
         broad = self._fetch_broad()
@@ -38,15 +34,16 @@ class PolymarketFetcher(BaseFetcher):
 
     def _fetch_broad(self) -> list[RawMarket]:
         now = datetime.now(timezone.utc)
+        expiry_max = now + timedelta(days=settings.expiry_max_days)
         params = {
             "active" : "true",
             "closed": "false",
             "archived": "false",
-            "volume_min": self.volume_min,
+            "volume_min": settings.polymarket_volume_min,
             "order" : "volume_24hr",
             "end_date_min" : now.isoformat(),
-            "end_date_max": self.expiry_max.isoformat(),
-            "limit": self.page_limit,
+            "end_date_max": expiry_max.isoformat(),
+            "limit": settings.polymarket_page_limit,
         }
 
         markets = self._paginate("/events", params)
@@ -68,7 +65,7 @@ class PolymarketFetcher(BaseFetcher):
                 "order": "volume_24hr",
                 "ascending":"false",
                 "end_date_min": now.isoformat(),
-                "limit": self.page_limit,
+                "limit": settings.polymarket_page_limit,
             }
             markets = self._paginate("/events", params)
             logger.info(f"Tag {tag_id}: {len(markets)} markets")
@@ -83,7 +80,7 @@ class PolymarketFetcher(BaseFetcher):
             params["offset"] = offset
 
             try:
-                resp = self.session.get(self.base_url + endpoint, params=params, timeout=30)
+                resp = self.session.get(settings.polymarket_base_url + endpoint, params=params, timeout=30)
                 resp.raise_for_status()
                 events = resp.json()
             except requests.HTTPError as e:
@@ -99,10 +96,10 @@ class PolymarketFetcher(BaseFetcher):
             for event in events:
                 all_markets.extend(self._parse_event(event))
 
-            if len(events) < self.page_limit:
+            if len(events) < settings.polymarket_page_limit:
                 break
 
-            offset += self.page_limit
+            offset += settings.polymarket_page_limit
             time.sleep(0.2)
 
         return all_markets
@@ -129,7 +126,8 @@ class PolymarketFetcher(BaseFetcher):
 
         return results
 
-    def _parse_probability(self, outcome_prices_raw) -> float | None:
+    @staticmethod
+    def _parse_probability(outcome_prices_raw) -> float | None:
         if not outcome_prices_raw:
             return None
         try:
@@ -137,11 +135,11 @@ class PolymarketFetcher(BaseFetcher):
             prob = float(prices[0])
             return prob if 0.0 <= prob <= 1.0 else None
         except (ValueError, IndexError, TypeError) as e:
-            logger.error(f"Error: {e}")
+            logger.debug(f"Could not parse outcomePrices: {outcome_prices_raw} — {e}")
             return None
 
-
-    def _parse_expiry(self, end_date_str: str | None) -> datetime | None:
+    @staticmethod
+    def _parse_expiry(end_date_str: str | None) -> datetime | None:
         if not end_date_str:
             return None
         try:
@@ -150,19 +148,24 @@ class PolymarketFetcher(BaseFetcher):
             return None
 
     def _get_signal_tag_ids(self) -> list[str]:
+        if self._tag_ids is not None:
+            return self._tag_ids
         try:
-            resp = self.session.get(self.base_url + "/tags", timeout=30)
+            resp = self.session.get(settings.polymarket_base_url + "/tags", timeout=30)
             resp.raise_for_status()
             tags = resp.json()
-            ids = [
+            self._tag_ids = [
                 str(t["id"]) for t in tags
                 if any(kw in t.get("label", "").lower() for kw in SIGNAL_KEYWORDS)
             ]
-            logger.info(f"Signal tag IDs: {ids}")
-            return ids
+            logger.info(f"Signal tag IDs: {self._tag_ids}")
+            return self._tag_ids
         except Exception as e:
             logger.warning(f"Could not fetch tags: {e}")
+            self._tag_ids = []
             return []
 
-
-
+    @staticmethod
+    def _extract_category(event: dict) -> str | None:
+        tags = event.get("tags", [])
+        return tags[0].get("label") if tags else None
