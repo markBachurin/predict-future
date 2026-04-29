@@ -30,13 +30,12 @@ class S3Client(Client):
         body = json.dumps(self._serialize(markets), indent=2)
 
         try:
-            response = s3.put_object(
+            s3.put_object(
                 Bucket=settings.s3_bucket,
                 Key=key,
                 Body=body,
                 ContentType="application/json"
             )
-            status = response["ResponseMetadata"]["HTTPStatusCode"]
             logger.info(f"Archived {len(markets)} markets to s3://{settings.s3_bucket}/{key}")
             return key
         except ClientError as e:
