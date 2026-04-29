@@ -58,3 +58,28 @@ class ValidatedMarket(BaseModel):
         if self.expiry and self.expiry < datetime.now(timezone.utc):
             raise ValueError(f"Market already expired at {self.expiry.isoformat()}")
         return self
+
+    def to_dict(self) -> dict:
+        return {
+            "source": self.source,
+            "external_id": self.external_id,
+            "question": self.question,
+            "probability": self.probability,
+            "volume": self.volume,
+            "category": self.category,
+            "expiry": self.expiry.isoformat() if self.expiry else None,
+            "raw_payload": self.raw_payload,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ValidatedMarket":
+        return cls(
+            source=data["source"],
+            external_id=data["external_id"],
+            question=data["question"],
+            probability=data["probability"],
+            volume=data["volume"],
+            category=data["category"],
+            expiry=datetime.fromisoformat(data["expiry"]) if data["expiry"] else None,
+            raw_payload=data["raw_payload"],
+        )
