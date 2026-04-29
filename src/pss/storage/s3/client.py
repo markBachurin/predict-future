@@ -7,16 +7,17 @@ from src.pss.datatypes.validated_market import ValidatedMarket
 from config.config import settings
 from botocore.exceptions import ClientError
 import logging
-from typing import Union
+from typing import Union, Type
 
 Market = Union[RawMarket, ValidatedMarket]
+MarketClass = Type[Market]
 
 logger = logging.getLogger(__name__)
 
 class S3Client(Client):
-    def upload_markets(self, markets: list[Market]) -> bool:
+    def upload_markets(self, markets: list[Market], prefix: str = "raw") -> str | None:
         if not markets:
-            return False
+            return None
 
         s3 = self._get_s3_client()
 
@@ -25,7 +26,7 @@ class S3Client(Client):
             raise ValueError(f"Expected single-source batch, got: {sources}")
         source = sources.pop()
 
-        key: str = f"raw/{source}/{datetime.now(timezone.utc).strftime('%Y/%m/%d/%H%M%S_%f')}.json"
+        key: str = f"{prefix}/{source}/{datetime.now(timezone.utc).strftime('%Y/%m/%d/%H%M%S_%f')}.json"
         body = json.dumps(self._serialize(markets), indent=2)
 
         try:
@@ -37,12 +38,30 @@ class S3Client(Client):
             )
             status = response["ResponseMetadata"]["HTTPStatusCode"]
             logger.info(f"Archived {len(markets)} markets to s3://{settings.s3_bucket}/{key}")
-            return status == 200
+            return key
         except ClientError as e:
             logger.error(f"S3 upload failed for key {key}: {e}")
-            return False
+            return None
+
+    def download_raw_markets(self, key: str) -> list[RawMarket]:
+        return self._download_markets(key, RawMarket)
+
+    def download_validated_markets(self, key: str) -> list[ValidatedMarket]:
+        return self._download_markets(key, ValidatedMarket)
 
     # private
+    def _download_markets(self, key: str, market_class: MarketClass):
+        if not key:
+            return []
+        try:
+            s3 = self._get_s3_client()
+            response = s3.get_object(Bucket=settings.s3_bucket, Key=key)
+            data = json.loads(response["Body"].read().decode("utf-8"))
+            return [market_class.from_dict(m) for m in data]
+        except ClientError as e:
+            logger.error(f"S3 download failed for key {key} : {e}")
+            return []
+
     @staticmethod
     def _get_s3_client():
         return boto3.client(
@@ -55,15 +74,6 @@ class S3Client(Client):
     @staticmethod
     def _serialize(markets: list[Market]) -> list[dict]:
         return [
-            {
-                "source": market.source,
-                "external_id": market.external_id,
-                "question": market.question,
-                "probability": market.probability,
-                "volume": market.volume,
-                "category": market.category,
-                "expiry": market.expiry.isoformat() if market.expiry else None,
-                "raw_payload": market.raw_payload,
-            }
+            market.to_dict()
             for market in markets
         ]
