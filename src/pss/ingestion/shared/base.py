@@ -15,6 +15,6 @@ class RawMarket:
 
 class BaseFetcher(ABC):
     @abstractmethod
-    def fetch_active_markets(selfsef) -> list[RawMarket]:
+    def fetch_active_markets(self) -> list[RawMarket]:
         ...
 
