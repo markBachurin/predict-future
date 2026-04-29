@@ -16,14 +16,14 @@ def task_fetch_archive(**context):
 with DAG (
     dag_id = "pss_polymarket_ingestion",
     default_args=settings.dag_default_args,
-    description="Layer 1 - ingest active markets from Polymarket and Kalshi",
+    description="Layer 1 - ingest active markets from Polymarket",
     schedule_interval=timedelta(minutes=15),
     start_date=datetime(2026,1,1),
     catchup=False,
     tags=["pss", "ingestion"],
 ) as dag:
     polymarket_ingestion_archive_s3 = PythonOperator(
-        task_id="polymarket_ingest_archive_s3",
+        task_id="polymarket_ingestion_archive_s3",
         python_callable=task_fetch_archive,
     )
 
