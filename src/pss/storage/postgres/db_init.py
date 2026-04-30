@@ -17,8 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_raw_markets_processed ON raw_markets (processed, 
 CREATE INDEX IF NOT EXISTS idx_raw_markets_source    ON raw_markets (source);
 
 CREATE TABLE IF NOT EXISTS markets (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),q
-    q
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     raw_market_id UUID          NOT NULL REFERENCES raw_markets(id),
     source        VARCHAR(20)   NOT NULL,
     external_id   VARCHAR(255)  NOT NULL,
