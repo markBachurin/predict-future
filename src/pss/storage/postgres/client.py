@@ -78,7 +78,15 @@ class PostgresClient(Client):
 
     @staticmethod
     def _get_connection():
-        return psycopg2.connect(settings.database_url)
+        return psycopg2.connect(
+            host=settings.db_host,
+            port=settings.db_port,
+            dbname=settings.db,
+            user=settings.db_user,
+            password=settings.db_password,
+            connect_timeout=10,
+            sslmode="require",
+        )
 
     @contextmanager
     def _get_conn(self):

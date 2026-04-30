@@ -2,8 +2,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from datetime import timedelta
 
+DAG_DEFAULT_ARGS={
+        "owner" : "pss",
+        "retries": 2,
+        "retry_delay": timedelta(minutes=2),
+    }
+
 class Settings(BaseSettings):
-    database_url: str
+    # db supabase
+    db_host: str
+    db_port: int
+    db: str
+    db_user: str
+    db_password: str
 
     # Polymarket
     polymarket_base_url: str
@@ -15,7 +26,6 @@ class Settings(BaseSettings):
     kalshi_api_key: str
 
     s3_bucket: str
-    aws_endpoint_url : str
 
     # LLM
     anthropic_api_key: str
@@ -25,12 +35,6 @@ class Settings(BaseSettings):
     expiry_max_days: int = 100 # ignore markets expiring beyond 6 months
 
     aws_region_name: str
-
-    dag_default_args={
-        "owner" : "pss",
-        "retries": 2,
-        "retry_delay": timedelta(minutes=2),
-    }
 
     model_config = SettingsConfigDict(
         env_file = Path(__file__).parent.parent / ".env",
