@@ -27,14 +27,14 @@ class S3Client(Client):
         source = sources.pop()
 
         BATCH_SIZE = settings.batch_size
-        date_path = datetime.utcnow().strftime("%Y/%m/%d")
+        date_path = datetime.utcnow().strftime("%Y:%m:%d")
         timestamp = datetime.utcnow().strftime("%H%M%S_%f")
         keys = []
 
         batches = [markets[i:i + BATCH_SIZE] for i in range(0, len(markets), BATCH_SIZE)]
 
         for idx, batch in enumerate(batches):
-            key = f"{prefix}/{source}/{date_path}/{timestamp}_batch{idx}.json"
+            key = f"{prefix}/{source}/{date_path}/{timestamp}/batch{idx}.json"
             try:
                 s3.put_object(
                     Bucket=settings.s3_bucket,
