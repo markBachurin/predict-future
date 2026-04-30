@@ -23,18 +23,19 @@ class Settings(BaseSettings):
 
     # Kalshi
     kalshi_base_url: str
-    kalshi_api_key: str
 
     s3_bucket: str
+    aws_access_key: str
+    aws_secret_access_key: str
+    aws_region_name: str
 
     # LLM
     anthropic_api_key: str
 
     #p pipeline
-    ingestion_interval_minutes: int = 15
-    expiry_max_days: int = 100 # ignore markets expiring beyond 6 months
+    ingestion_interval_minutes: int
+    expiry_max_days: int = 180
 
-    aws_region_name: str
 
     model_config = SettingsConfigDict(
         env_file = Path(__file__).parent.parent / ".env",
