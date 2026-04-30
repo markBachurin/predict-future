@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from src.pss.storage.shared.client import Client
 from src.pss.datatypes.raw_market import RawMarket
 from src.pss.datatypes.validated_market import ValidatedMarket
-from config.config import settings
+from pss_config.config import settings
 from botocore.exceptions import ClientError
 import logging
 from typing import Union, Type
@@ -15,9 +15,9 @@ MarketClass = Type[Market]
 logger = logging.getLogger(__name__)
 
 class S3Client(Client):
-    def upload_markets(self, markets: list[Market], prefix: str = "raw") -> str | None:
+    def upload_markets(self, markets: list[Market], prefix: str = "raw") -> list[str]:
         if not markets:
-            return None
+            return []
 
         s3 = self._get_s3_client()
 
@@ -26,40 +26,52 @@ class S3Client(Client):
             raise ValueError(f"Expected single-source batch, got: {sources}")
         source = sources.pop()
 
-        key: str = f"{prefix}/{source}/{datetime.now(timezone.utc).strftime('%Y/%m/%d/%H%M%S_%f')}.json"
-        body = json.dumps(self._serialize(markets), indent=2)
+        BATCH_SIZE = settings.batch_size
+        date_path = datetime.utcnow().strftime("%Y/%m/%d")
+        timestamp = datetime.utcnow().strftime("%H%M%S_%f")
+        keys = []
 
-        try:
-            s3.put_object(
-                Bucket=settings.s3_bucket,
-                Key=key,
-                Body=body,
-                ContentType="application/json"
-            )
-            logger.info(f"Archived {len(markets)} markets to s3://{settings.s3_bucket}/{key}")
-            return key
-        except ClientError as e:
-            logger.error(f"S3 upload failed for key {key}: {e}")
-            return None
+        batches = [markets[i:i + BATCH_SIZE] for i in range(0, len(markets), BATCH_SIZE)]
 
-    def download_raw_markets(self, key: str) -> list[RawMarket]:
-        return self._download_markets(key, RawMarket)
+        for idx, batch in enumerate(batches):
+            key = f"{prefix}/{source}/{date_path}/{timestamp}_batch{idx}.json"
+            try:
+                s3.put_object(
+                    Bucket=settings.s3_bucket,
+                    Key=key,
+                    Body=json.dumps([m.to_dict() for m in batch]),
+                    ContentType="application/json",
+                )
+                keys.append(key)
+                logger.info(f"Uploaded batch {idx+1}/{len(batches)} to {key}")
+            except Exception as e:
+                logger.error(f"S3 upload failed for key {key}: {e}")
+                raise
 
-    def download_validated_markets(self, key: str) -> list[ValidatedMarket]:
-        return self._download_markets(key, ValidatedMarket)
+        return keys
+
+    def download_raw_markets(self, keys: list[str]) -> list[RawMarket]:
+        return self._download_markets(keys, RawMarket)
+
+    def download_validated_markets(self, keys: list[str]) -> list[ValidatedMarket]:
+        return self._download_markets(keys, ValidatedMarket)
 
     # private
-    def _download_markets(self, key: str, market_class: MarketClass) -> list[Market]:
-        if not key:
+    def _download_markets(self, keys: list[str], market_class: MarketClass) -> list[Market]:
+        if not keys:
             return []
-        try:
-            s3 = self._get_s3_client()
-            response = s3.get_object(Bucket=settings.s3_bucket, Key=key)
-            data = json.loads(response["Body"].read().decode("utf-8"))
-            return [market_class.from_dict(m) for m in data]
-        except ClientError as e:
-            logger.error(f"S3 download failed for key {key} : {e}")
-            return []
+
+        markets = []
+        for key in keys:
+            try:
+                s3 = self._get_s3_client()
+                response = s3.get_object(Bucket=settings.s3_bucket, Key=key)
+                data = json.loads(response["Body"].read().decode("utf-8"))
+                markets.extend([market_class.from_dict(m) for m in data])
+            except ClientError as e:
+                logger.error(f"S3 download failed for key {key} : {e}")
+                raise
+        return markets
 
     @staticmethod
     def _get_s3_client():
