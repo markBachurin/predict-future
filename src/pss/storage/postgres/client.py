@@ -21,7 +21,8 @@ class PostgresClient(Client):
                     """
                         INSERT INTO raw_markets (source, external_id)
                         VALUES %s
-                        ON CONFLICT (source, external_id, ingested_at) DO NOTHING
+                        ON CONFLICT (source, external_id, ingested_at) DO UPDATE
+                            SET source = EXCLUDED.source
                         RETURNING id
                     """,
                     [
@@ -32,47 +33,53 @@ class PostgresClient(Client):
                 )
                 return [str(row[0]) for row in rows]
 
-    def upsert_market(self, raw_id: str, market: ValidatedMarket, is_valid: bool) -> str | None:
-        if not market or not raw_id:
-            return None
+    def upsert_markets(self, raw_ids: list[str], markets: list[ValidatedMarket], is_valid: bool) -> list[str]:
+        if not markets:
+            return []
 
         with self._get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                                INSERT INTO markets(raw_market_id, source, external_id, question, category,
-                                probability, volume, expiry, is_valid
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                ON CONFLICT (source, external_id) DO UPDATE SET
-                                    probability = EXCLUDED.probability,
-                                    volume = EXCLUDED.volume,
-                                    category = EXCLUDED.category, 
-                                    updated_at = now()
-                                RETURNING id
-                            """, (
-                    raw_id,
-                    market.source,
-                    market.external_id,
-                    market.question,
-                    market.category,
-                    market.probability,
-                    market.volume,
-                    market.expiry,
-                    is_valid,
-                ))
-                return  str(cur.fetchone()[0])
+                rows = execute_values(
+                    cur,
+                    """
+                        INSERT INTO markets(raw_market_id, source, external_id, question, category,
+                        probability, volume, expiry, is_valid)
+                        VALUES %s
+                        ON CONFLICT (source, external_id) DO UPDATE SET
+                            probability = EXCLUDED.probability,
+                            volume = EXCLUDED.volume,
+                            category = EXCLUDED.category,
+                            updated_at = now()
+                        RETURNING id
+                    """,
+                    [
+                        (raw_ids[i], m.source, m.external_id, m.question, m.category, m.probability, m.volume, m.expiry, is_valid)
+                        for i, m in enumerate(markets)
+                    ],
+                    fetch=True
+                )
+                return [str(row[0]) for row in rows]
 
-    def insert_snapshot(self, market_id: str, market: ValidatedMarket) -> str | None:
-        if not market_id or not market:
-            return None
+    def insert_snapshots(self, market_ids: list[str], markets: list[ValidatedMarket]) -> list[str]:
+        if not markets:
+            return []
+
         with self._get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO market_snapshots (market_id, probability, volume)
-                    VALUES (%s, %s, %s)
-                    RETURNING id
-                """, (market_id, market.probability, market.volume))
-                return str(cur.fetchone()[0])
-
+                rows = execute_values(
+                    cur,
+                    """
+                        INSERT INTO market_snapshots (market_id, probability, volume)
+                        VALUES %s
+                        RETURNING id
+                    """,
+                    [
+                        (market_ids[i], m.probability, m.volume)
+                        for i, m in enumerate(markets)
+                    ],
+                    fetch=True
+                )
+            return [str(row[0]) for row in rows]
 
     # private methods:
 

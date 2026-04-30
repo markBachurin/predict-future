@@ -29,11 +29,14 @@ def task_load_postgres(**context):
     validated = S3Client().download_validated_markets(validated_keys)
 
     pg = PostgresClient()
-    for m in validated:
-        raw_ids = pg.upload_markets([m])
-        if raw_ids:
-            market_id = pg.upsert_market(raw_ids[0], m, is_valid=True)
-            pg.insert_snapshot(market_id, m)
+    raw_ids = pg.upload_markets(validated)
+    if raw_ids:
+        market_ids = pg.upsert_markets(raw_ids, validated, True)
+        pg.insert_snapshots(market_ids, validated)
+    else:
+        logger.error(f"Error upserting markets")
+        raise
+
 
 def ensure_schema():
     return db_init()
