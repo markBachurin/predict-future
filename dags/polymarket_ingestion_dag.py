@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import logging
-from config.config import DAG_DEFAULT_ARGS
+from pss_config.config import DAG_DEFAULT_ARGS
 
 from dags.shared.ingestion_tasks import task_fetch_and_archive, task_validate, task_load_postgres, ensure_schema
 
