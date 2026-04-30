@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import logging
-from config.config import settings
+from config.config import DAG_DEFAULT_ARGS
 
 from dags.shared.ingestion_tasks import task_fetch_and_archive, task_validate, task_load_postgres
 
@@ -15,7 +15,7 @@ def task_fetch_archive(**context):
 
 with DAG (
     dag_id = "pss_polymarket_ingestion",
-    default_args=settings.dag_default_args,
+    default_args=DAG_DEFAULT_ARGS,
     description="Layer 1 - ingest active markets from Polymarket",
     schedule_interval=timedelta(minutes=15),
     start_date=datetime(2026,1,1),
