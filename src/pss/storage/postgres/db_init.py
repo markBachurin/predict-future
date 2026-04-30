@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 CREATE INDEX IF NOT EXISTS idx_snapshots_market_time ON market_snapshots (market_id, recorded_at);
 """
 
-def db_init():
+def db_init() -> None:
     logger.info("Initializing database scheama ...")
 
     conn = psycopg2.connect(
@@ -70,8 +70,3 @@ def db_init():
         raise
     finally:
         conn.close()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    db_init()

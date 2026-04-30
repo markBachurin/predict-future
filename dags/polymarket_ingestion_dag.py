@@ -4,7 +4,7 @@ from airflow.operators.python import PythonOperator
 import logging
 from config.config import DAG_DEFAULT_ARGS
 
-from dags.shared.ingestion_tasks import task_fetch_and_archive, task_validate, task_load_postgres
+from dags.shared.ingestion_tasks import task_fetch_and_archive, task_validate, task_load_postgres, ensure_schema
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 def task_fetch_archive(**context):
     from src.pss.ingestion.polymarket import PolymarketFetcher
     return task_fetch_and_archive(PolymarketFetcher(), **context)
+
+
 
 with DAG (
     dag_id = "pss_polymarket_ingestion",
@@ -22,6 +24,11 @@ with DAG (
     catchup=False,
     tags=["pss", "ingestion"],
 ) as dag:
+    ensure_schema = PythonOperator(
+        task_id="ensure_db_schema",
+        python_callable=ensure_schema,
+    )
+
     polymarket_ingestion_archive_s3 = PythonOperator(
         task_id="polymarket_ingestion_archive_s3",
         python_callable=task_fetch_archive,
@@ -38,5 +45,5 @@ with DAG (
     )
 
 
-    polymarket_ingestion_archive_s3 >> validate >> load_to_postgres
+    ensure_schema >> polymarket_ingestion_archive_s3 >> validate >> load_to_postgres
 

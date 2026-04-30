@@ -1,6 +1,7 @@
 from src.pss.storage.s3.client import S3Client
 import logging
 from src.pss.ingestion.shared.base import BaseFetcher
+from src.pss.storage.postgres.db_init import db_init
 
 
 logger = logging.getLogger(__name__)
@@ -33,3 +34,6 @@ def task_load_postgres(**context):
         if raw_ids:
             market_id = pg.upsert_market(raw_ids[0], m, is_valid=True)
             pg.insert_snapshot(market_id, m)
+
+def ensure_schema():
+    return db_init()
