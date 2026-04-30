@@ -14,7 +14,6 @@ class ValidatedMarket(BaseModel):
     volume: float
     category: str | None
     expiry: datetime | None
-    raw_payload: dict
 
     @field_validator("source")
     @classmethod
@@ -68,7 +67,6 @@ class ValidatedMarket(BaseModel):
             "volume": self.volume,
             "category": self.category,
             "expiry": self.expiry.isoformat() if self.expiry else None,
-            "raw_payload": self.raw_payload,
         }
 
     @classmethod
@@ -81,5 +79,4 @@ class ValidatedMarket(BaseModel):
             volume=data["volume"],
             category=data["category"],
             expiry=datetime.fromisoformat(data["expiry"]) if data["expiry"] else None,
-            raw_payload=data["raw_payload"],
         )

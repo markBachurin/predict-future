@@ -1,6 +1,6 @@
 import logging
 import psycopg2
-from config.config import settings
+from pss_config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS raw_markets (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source      VARCHAR(20)  NOT NULL,
     external_id VARCHAR(255) NOT NULL,
-    raw_payload JSONB        NOT NULL,
     processed   BOOLEAN      NOT NULL DEFAULT false,
     ingested_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (source, external_id, ingested_at)
@@ -18,7 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_raw_markets_processed ON raw_markets (processed, 
 CREATE INDEX IF NOT EXISTS idx_raw_markets_source    ON raw_markets (source);
 
 CREATE TABLE IF NOT EXISTS markets (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),q
+    q
     raw_market_id UUID          NOT NULL REFERENCES raw_markets(id),
     source        VARCHAR(20)   NOT NULL,
     external_id   VARCHAR(255)  NOT NULL,

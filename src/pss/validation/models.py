@@ -14,7 +14,6 @@ def validate_market(market: RawMarket) -> ValidatedMarket | None:
             volume= market.volume,
             category= market.category,
             expiry= market.expiry,
-            raw_payload= market.raw_payload,
 
         )
     except Exception as e:

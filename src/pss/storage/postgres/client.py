@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2.extras import execute_values, Json
 from contextlib import contextmanager
-from config.config import settings
+from pss_config.config import settings
 from src.pss.datatypes.raw_market import RawMarket
 from src.pss.datatypes.validated_market import ValidatedMarket
 from src.pss.storage.shared.client import Client
@@ -19,13 +19,13 @@ class PostgresClient(Client):
                 rows = execute_values(
                     cur,
                     """
-                        INSERT INTO raw_markets (source, external_id, raw_payload)
+                        INSERT INTO raw_markets (source, external_id)
                         VALUES %s
                         ON CONFLICT (source, external_id, ingested_at) DO NOTHING
                         RETURNING id
                     """,
                     [
-                        (market.source, market.external_id, Json(market.raw_payload))
+                        (market.source, market.external_id)
                         for market in markets
                     ],
                     fetch=True
