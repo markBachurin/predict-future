@@ -40,8 +40,8 @@ class PostgresClient(Client):
             with conn.cursor() as cur:
                 cur.execute("""
                                 INSERT INTO markets(raw_market_id, source, external_id, question, category,
-                                probability, volume, expiry, is_valid, normalized_at
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+                                probability, volume, expiry, is_valid
+                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                                 ON CONFLICT (source, external_id) DO UPDATE SET
                                     probability = EXCLUDED.probability,
                                     volume = EXCLUDED.volume,
