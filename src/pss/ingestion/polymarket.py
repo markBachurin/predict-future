@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config.config import settings
+from pss_config.config import settings
 from src.pss.ingestion.shared.base import BaseFetcher
 from src.pss.datatypes.raw_market import RawMarket
 
@@ -122,7 +122,6 @@ class PolymarketFetcher(BaseFetcher):
                 volume=float(event.get("liquidity") or market.get("volumeNum") or 0),
                 category=category,
                 expiry=self._parse_expiry(event.get("endDate")),
-                raw_payload=event,
             ))
 
         return results

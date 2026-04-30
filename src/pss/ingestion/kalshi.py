@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config.config import settings
+from pss_config.config import settings
 from src.pss.ingestion.shared.base import BaseFetcher
 from src.pss.datatypes.raw_market import RawMarket
 
@@ -87,7 +87,6 @@ class KalshiFetcher(BaseFetcher):
             volume=self._parse_volume(market),
             category=category,
             expiry=expiry,
-            raw_payload=market,
         )
 
     @staticmethod
