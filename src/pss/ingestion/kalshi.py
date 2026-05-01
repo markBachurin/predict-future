@@ -10,7 +10,29 @@ from src.pss.datatypes.raw_market import RawMarket
 
 logger = logging.getLogger(__name__)
 
-SIGNAL_CATEGORIES = {"economics", "finance", "crypto", "politics", "technology", "business"}
+SIGNAL_SERIES = [
+    # Crypto
+    "KXBTC", "KXBTCMAX100", "KXBTCMAX150",
+    "KXETH", "KXBNB", "KXBNBD", "KXSOLD",
+    "KXHYPE", "KXDOGE",
+    # Fed / macro
+    "KXFEDDECISION", "KXFED", "KXRATECUT", "KXRATECUTCOUNT",
+    "KXFEDHIKE", "KXDOTPLOT", "KXFOMCDISSENTCOUNT", "KXFEDMEET",
+    "KXZERORATE",
+    # Inflation
+    "KXCPI", "KXCPIYOY", "KXCPICORE", "KXCPICOREYOY",
+    # Indices
+    "KXINX", "KXINXY", "KXNASDAQ100", "KXNASDAQ100Y",
+    # Yield / treasuries
+    "KX10Y2Y", "KX10Y3M",
+    # AI / semiconductors
+    "KXH200W", "KXH200MON", "KXB200W", "KXB200MON",
+    "KXA100W", "KXA100MON", "KXRTX5090W", "KXRTX5090MON",
+    # AI general
+    "KXTOPAI", "KXOAIAGI", "KXFRONTIER",
+    # GDP / employment
+    "KXGDP", "KXGDPYEAR", "KXPAYROLLS", "KXUSNFP", "KXJOBLESSCLAIMS",
+]
 
 class KalshiFetcher(BaseFetcher):
     def __init__(self):
@@ -25,52 +47,70 @@ class KalshiFetcher(BaseFetcher):
     # private
     def _fetch_open_markets(self) -> list[RawMarket]:
         all_markets = []
-        cursor = None
+        seen = set()
 
-        while True:
-            params = {
-                "status": "open",
-                "limit": 1000,
-            }
-            if cursor:
-                params["cursor"] = cursor
-            try:
-                resp = self.session.get(
-                    settings.kalshi_base_url + "/markets",
-                    params=params,
-                    timeout=30,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            except requests.HTTPError as e:
-                logger.error(f"Kalshi HTTP error: {e}")
-                break
-            except Exception as e:
-                logger.error(f"Kalshi fetch error: {e}")
-                break
+        for series_ticker in SIGNAL_SERIES:
+            cursor = None
+            while True:
+                params = {
+                    "status": "open",
+                    "limit": 1000,
+                    "series_ticker": series_ticker,
+                }
+                if cursor:
+                    params["cursor"] = cursor
 
-            markets = data.get("markets", [])
-            if not markets:
-                break
+                try:
+                    resp = self.session.get(
+                        settings.kalshi_base_url + "/markets",
+                        params=params,
+                        timeout=30,
+                    )
+                    if resp.status_code == 429:
+                        retry_after = resp.headers.get("Retry-After")
+                        rate_limit = resp.headers.get("X-RateLimit-Limit")
+                        remaining = resp.headers.get("X-RateLimit-Remaining")
+                        reset = resp.headers.get("X-RateLimit-Reset")
+                        logger.warning(
+                            f"Rate limited on series={series_ticker} | "
+                            f"Retry-After={retry_after} | "
+                            f"Limit={rate_limit} | Remaining={remaining} | Reset={reset} | "
+                            f"retrying in 2s..."
+                        )
+                        time.sleep(2)
+                        continue
+                    resp.raise_for_status()
+                    data = resp.json()
+                except requests.HTTPError as e:
+                    logger.error(f"Kalshi HTTP error (series={series_ticker}): {e}")
+                    break
+                except Exception as e:
+                    logger.error(f"Kalshi fetch error (series={series_ticker}): {e}")
+                    break
 
-            for market in markets:
-                parsed = self._parse_market(market)
-                if parsed:
-                    all_markets.append(parsed)
+                markets = data.get("markets", [])
+                if not markets:
+                    break
 
-            cursor = data.get("cursor")
-            if not cursor:
-                break
+                for market in markets:
+                    ticker = market.get("ticker")
+                    if ticker in seen:
+                        continue
+                    seen.add(ticker)
+                    parsed = self._parse_market(market)
+                    if parsed:
+                        all_markets.append(parsed)
 
-            time.sleep(0.2)
+                cursor = data.get("cursor")
+                if not cursor:
+                    break
 
+                time.sleep(1)
+
+        logger.info(f"Kalshi: {len(all_markets)} markets fetched across {len(SIGNAL_SERIES)} series")
         return all_markets
 
     def _parse_market(self, market: dict) -> RawMarket | None:
-        category = market.get("category", "")
-        if category.lower() not in SIGNAL_CATEGORIES:
-            return None
-
         expiry = self._parse_expiry(market.get("close_time"))
         if expiry and expiry > self.expiry_max:
             return None
@@ -85,7 +125,7 @@ class KalshiFetcher(BaseFetcher):
             question=market.get("title", ""),
             probability=prob,
             volume=self._parse_volume(market),
-            category=category,
+            category=market.get("category", ""),
             expiry=expiry,
         )
 
