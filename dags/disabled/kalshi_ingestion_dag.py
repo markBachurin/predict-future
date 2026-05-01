@@ -12,7 +12,7 @@ def task_fetch_archive(**context):
     from src.pss.ingestion.kalshi import KalshiFetcher
     return task_fetch_and_archive(KalshiFetcher(), **context)
 
-with DAG(
+"""with DAG(
     dag_id="pss_kalshi_ingestion",
     default_args= DAG_DEFAULT_ARGS,
     description="Layer 1 - ingest active markets from Kalshi",
@@ -43,3 +43,4 @@ with DAG(
 
     ensure_schema >> kalshi_ingestion_archive_s3 >> validate >> load_to_postgres
 
+"""
