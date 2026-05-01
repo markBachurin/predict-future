@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     expiry_max_days: int = 180
     batch_size: int = 1000
 
+    min_volume: int
+
 
     model_config = SettingsConfigDict(
         env_file = Path(__file__).parent.parent / ".env",

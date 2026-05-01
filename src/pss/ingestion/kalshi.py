@@ -119,6 +119,10 @@ class KalshiFetcher(BaseFetcher):
         if prob is None:
             return None
 
+        volume = self._parse_volume(market)
+        if volume < settings.min_volume:
+            return None
+
         return RawMarket(
             source="kalshi",
             external_id=f"kalshi:{market.get('ticker')}",
