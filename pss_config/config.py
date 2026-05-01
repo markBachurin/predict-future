@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     #p pipeline
     ingestion_interval_minutes: int
     expiry_max_days: int = 180
-    batch_size: int = 500
+    batch_size: int = 1000
 
 
     model_config = SettingsConfigDict(
