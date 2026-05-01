@@ -114,6 +114,10 @@ class PolymarketFetcher(BaseFetcher):
             if prob is None:
                 continue
 
+            volume = float(event.get("liquidity") or market.get("volumeNum") or 0)
+            if volume < settings.polymarket_volume_min:
+                continue
+
             results.append(RawMarket(
                 source="polymarket",
                 external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
