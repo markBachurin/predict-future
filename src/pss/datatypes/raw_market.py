@@ -14,6 +14,7 @@ class RawMarket:
     volume24hr: float
     price_change_day: float | None
     price_change_week: float | None
+    liquidity: float
 
     def to_dict(self) -> dict:
         return {
@@ -28,6 +29,7 @@ class RawMarket:
             "volume24hr" : self.volume24hr,
             "price_change_day": self.price_change_day,
             "price_change_week": self.price_change_week,
+            "liquidity": self.liquidity,
         }
 
     @classmethod
@@ -44,4 +46,5 @@ class RawMarket:
             volume24hr=data["volume24hr"],
             price_change_day=data["price_change_day"],
             price_change_week=data["price_change_week"],
+            liquidity=data["liquidity"],
         )

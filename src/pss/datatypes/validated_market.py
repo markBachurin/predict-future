@@ -18,6 +18,7 @@ class ValidatedMarket(BaseModel):
     volume24hr: float
     price_change_day: float | None
     price_change_week: float | None
+    liquidity: float
 
     @field_validator("source")
     @classmethod
@@ -79,6 +80,13 @@ class ValidatedMarket(BaseModel):
     def price_change_week_non_negative(cls, v: float | None) -> float | None:
         return v
 
+    @field_validator("liquidity")
+    @classmethod
+    def liquidity_non_negative(cls, v: float) -> float:
+        if v is not None and v < 0:
+            raise ValueError(f"liquidity must be non negative, got: {v}")
+        return v
+
     def to_dict(self) -> dict:
         return {
             "source": self.source,
@@ -92,6 +100,7 @@ class ValidatedMarket(BaseModel):
             "volume24hr" : self.volume24hr,
             "price_change_day": self.price_change_day,
             "price_change_week": self.price_change_week,
+            "liquidity": self.liquidity,
         }
 
     @classmethod
@@ -108,4 +117,5 @@ class ValidatedMarket(BaseModel):
             volume24hr=data["volume24hr"],
             price_change_day=data["price_change_day"],
             price_change_week=data["price_change_week"],
+            liquidity=data["liquidity"],
         )
