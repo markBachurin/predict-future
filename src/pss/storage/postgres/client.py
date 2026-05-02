@@ -44,7 +44,8 @@ class PostgresClient(Client):
                     """
                         INSERT INTO markets(raw_market_id, source, external_id, question, description,
                         category, probability, volume, volume24hr, price_change_day, price_change_week,
-                        liquidity, tags, expiry, is_valid)
+                        liquidity, tags, expiry, is_valid, market_type, outcomes, outcome_probabilities, resolution_source, 
+                        ticker, restricted)
                         VALUES %s
                         ON CONFLICT (source, external_id) DO UPDATE SET
                             probability = EXCLUDED.probability,
@@ -56,6 +57,12 @@ class PostgresClient(Client):
                             tags = EXCLUDED.tags,
                             description = EXCLUDED.description,
                             category = EXCLUDED.category,
+                            market_type = EXCLUDED.market_type,
+                            outcomes = EXCLUDED.outcomes, 
+                            outcome_probabilities = EXCLUDED.outcome_probabilities, 
+                            resolution_source = EXCLUDED.resolution_source, 
+                            ticker = EXCLUDED.ticker, 
+                            restricted = EXCLUDED.restricted, 
                             updated_at = now()
                         RETURNING id
                     """,
@@ -63,7 +70,8 @@ class PostgresClient(Client):
                         (
                             raw_ids[i], m.source, m.external_id, m.question, m.description,
                             m.category, m.probability, m.volume, m.volume24hr, m.price_change_day,
-                            m.price_change_week, m.liquidity, m.tags, m.expiry, is_valid
+                            m.price_change_week, m.liquidity, m.tags, m.expiry, is_valid, m.market_type,
+                            m.outcomes, m.outcome_probabilities, m.resolution_source, m.ticker, m.restricted,
                         )
                         for i, m in enumerate(markets)
                     ],
