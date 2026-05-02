@@ -62,7 +62,7 @@ class PolymarketFetcher(BaseFetcher):
                 "closed": "false",
                 "archived": "false",
                 "tag_id" : tag_id,
-                "volume_min": 5_000,
+                "volume_min": settings.polymarket_volume_min,
                 "order": "volume24hr",
                 "ascending":"false",
                 "end_date_min": now.isoformat(),
