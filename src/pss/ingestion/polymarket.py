@@ -129,6 +129,23 @@ class PolymarketFetcher(BaseFetcher):
 
             tags=[t.get("label", "") for t in event.get("tags", [])]
 
+            event_ticker = event.get("ticker")
+            market_type = market.get("market_type")
+            outcomes_list = market.get("outcomes", [])
+            outcome_probabilities_list = market.get("probabilities", [])
+            resolution_source = market.get("resolution_source")
+            restricted_status = market.get("restricted", False)
+
+            if market_type == "Binary" and "Yes" in outcomes_list:
+                try:
+                    yes_index = outcomes_list.index("Yes")
+                    prob = outcome_probabilities_list[yes_index]
+                except (ValueError, IndexError):
+                    logger.warning(f"Could not find 'Yes' outcome probability for binary market {market.get('id')}")
+                    prob = None
+            elif market_type in ["Multi-Outcome", "Scalar", "NegRisk"]:
+                ...
+
             results.append(RawMarket(
                 source="polymarket",
                 external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
@@ -143,6 +160,13 @@ class PolymarketFetcher(BaseFetcher):
                 price_change_week=price_change_week,
                 liquidity=liquidity,
                 tags=tags,
+                market_type=market_type,
+                outcomes=outcomes_list,
+                outcome_probabilities=outcome_probabilities_list,
+                resolution_source=resolution_source,
+                ticker=event_ticker,
+                restricted=restricted_status,
+
             ))
 
         return results
