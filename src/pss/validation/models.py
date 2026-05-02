@@ -20,6 +20,12 @@ def validate_market(market: RawMarket) -> ValidatedMarket | None:
             price_change_week=market.price_change_week,
             liquidity=market.liquidity,
             tags=market.tags,
+            market_type=market.market_type,
+            outcomes=market.outcomes,
+            outcome_probabilities=market.outcome_probabilities,
+            resolution_source=market.resolution_source,
+            ticker=market.ticker,
+            restricted=market.restricted,
         )
     except Exception as e:
         logger.warning(f"Dropping invalid market  [{market.source}:{market.external_id}] - {e}")
