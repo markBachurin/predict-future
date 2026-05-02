@@ -10,6 +10,7 @@ class ValidatedMarket(BaseModel):
     source: str
     external_id: str
     question: str
+    description: str | None
     probability: float | None
     volume: float
     category: str | None
@@ -63,6 +64,7 @@ class ValidatedMarket(BaseModel):
             "source": self.source,
             "external_id": self.external_id,
             "question": self.question,
+            "description": self.description,
             "probability": self.probability,
             "volume": self.volume,
             "category": self.category,
@@ -75,6 +77,7 @@ class ValidatedMarket(BaseModel):
             source=data["source"],
             external_id=data["external_id"],
             question=data["question"],
+            description=data["description"],
             probability=data["probability"],
             volume=data["volume"],
             category=data["category"],

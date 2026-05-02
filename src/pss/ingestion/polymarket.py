@@ -118,10 +118,13 @@ class PolymarketFetcher(BaseFetcher):
             if volume < settings.polymarket_volume_min:
                 continue
 
+            description = event.get("description") or market.get("description")
+
             results.append(RawMarket(
                 source="polymarket",
                 external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
                 question=market.get("question", event.get("title", "")),
+                description=description,
                 probability=prob,
                 volume=float(event.get("liquidity") or market.get("volumeNum") or 0),
                 category=category,
