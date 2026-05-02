@@ -41,7 +41,7 @@ class PolymarketFetcher(BaseFetcher):
             "closed": "false",
             "archived": "false",
             "volume_min": settings.polymarket_volume_min,
-            "order" : "volume_24hr",
+            "order" : "volume24hr",
             "end_date_min" : now.isoformat(),
             "end_date_max": expiry_max.isoformat(),
             "limit": settings.polymarket_page_limit,
@@ -63,7 +63,7 @@ class PolymarketFetcher(BaseFetcher):
                 "archived": "false",
                 "tag_id" : tag_id,
                 "volume_min": 5_000,
-                "order": "volume_24hr",
+                "order": "volume24hr",
                 "ascending":"false",
                 "end_date_min": now.isoformat(),
                 "limit": settings.polymarket_page_limit,
@@ -120,6 +120,9 @@ class PolymarketFetcher(BaseFetcher):
 
             description = event.get("description") or market.get("description")
 
+            volume24hr = float(event.get("volume24hr") or market.get("volume24hr") or 0)
+
+
             results.append(RawMarket(
                 source="polymarket",
                 external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
@@ -129,6 +132,7 @@ class PolymarketFetcher(BaseFetcher):
                 volume=float(event.get("liquidity") or market.get("volumeNum") or 0),
                 category=category,
                 expiry=self._parse_expiry(event.get("endDate")),
+                volume24hr=volume24hr,
             ))
 
         return results
