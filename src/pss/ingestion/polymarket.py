@@ -127,6 +127,8 @@ class PolymarketFetcher(BaseFetcher):
 
             liquidity = float(market.get("liquidity") or 0)
 
+            tags=[t.get("label", "") for t in event.get("tags", [])]
+
             results.append(RawMarket(
                 source="polymarket",
                 external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
@@ -140,6 +142,7 @@ class PolymarketFetcher(BaseFetcher):
                 price_change_day=price_change_day,
                 price_change_week=price_change_week,
                 liquidity=liquidity,
+                tags=tags,
             ))
 
         return results

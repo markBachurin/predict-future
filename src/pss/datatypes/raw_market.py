@@ -15,6 +15,7 @@ class RawMarket:
     price_change_day: float | None
     price_change_week: float | None
     liquidity: float
+    tags: list[str]
 
     def to_dict(self) -> dict:
         return {
@@ -30,6 +31,7 @@ class RawMarket:
             "price_change_day": self.price_change_day,
             "price_change_week": self.price_change_week,
             "liquidity": self.liquidity,
+            "tags": self.tags,
         }
 
     @classmethod
@@ -47,4 +49,5 @@ class RawMarket:
             price_change_day=data["price_change_day"],
             price_change_week=data["price_change_week"],
             liquidity=data["liquidity"],
+            tags=data["tags"],
         )
