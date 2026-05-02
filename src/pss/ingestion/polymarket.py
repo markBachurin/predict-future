@@ -122,8 +122,11 @@ class PolymarketFetcher(BaseFetcher):
 
             volume24hr = float(event.get("volume24hr") or market.get("volume24hr") or 0)
 
-            price_change_day = float(market.get("oneDayPriceChange") or event.get("oneDayPriceChange") or 0)
+            price_change_day_raw = market.get("oneDayPriceChange") if market.get("oneDayPriceChange") is not None else event.get("oneDayPriceChange")
+            price_change_day = float(price_change_day_raw) if price_change_day_raw is not None else None
 
+            price_change_week_raw = market.get("oneWeekPriceChange") if market.get("oneWeekPriceChange") is not None else event.get("oneWeekPriceChange")
+            price_change_week = float(price_change_week_raw) if price_change_week_raw is not None else None
 
             results.append(RawMarket(
                 source="polymarket",
@@ -136,6 +139,7 @@ class PolymarketFetcher(BaseFetcher):
                 expiry=self._parse_expiry(event.get("endDate")),
                 volume24hr=volume24hr,
                 price_change_day=price_change_day,
+                price_change_week=price_change_week,
             ))
 
         return results
