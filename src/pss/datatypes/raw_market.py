@@ -16,6 +16,12 @@ class RawMarket:
     price_change_week: float | None
     liquidity: float
     tags: list[str]
+    market_type: str | None
+    outcomes: list[str]
+    outcome_probabilities: list[float]
+    resolution_source: str | None
+    ticker: str | None
+    restricted: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -32,6 +38,12 @@ class RawMarket:
             "price_change_week": self.price_change_week,
             "liquidity": self.liquidity,
             "tags": self.tags,
+            "market_type": self.market_type,
+            "outcomes": self.outcomes,
+            "outcome_probabilities": self.outcome_probabilities,
+            "resolution_source": self.resolution_source,
+            "ticker": self.ticker,
+            "restricted": self.restricted,
         }
 
     @classmethod
@@ -50,4 +62,10 @@ class RawMarket:
             price_change_week=data["price_change_week"],
             liquidity=data["liquidity"],
             tags=data["tags"],
+            market_type=data.get("market_type"),
+            outcomes=data.get("outcomes", []),
+            outcome_probabilities=data.get("outcomes", []),
+            resolution_source=data.get("resolution_source"),
+            ticker=data.get("ticker"),
+            restricted=data.get("restricted", False),
         )
