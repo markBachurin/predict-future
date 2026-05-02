@@ -12,6 +12,7 @@ class RawMarket:
     category : str | None
     expiry : datetime | None
     volume24hr: float
+    price_change_day: float | None
 
     def to_dict(self) -> dict:
         return {
@@ -24,6 +25,7 @@ class RawMarket:
             "category": self.category,
             "expiry": self.expiry.isoformat() if self.expiry else None,
             "volume24hr" : self.volume24hr,
+            "price_change_day": self.price_change_day,
         }
 
     @classmethod
@@ -38,4 +40,5 @@ class RawMarket:
             category=data["category"],
             expiry=datetime.fromisoformat(data["expiry"]) if data["expiry"] else None,
             volume24hr=data["volume24hr"],
+            price_change_day=data["price_change_day"]
         )

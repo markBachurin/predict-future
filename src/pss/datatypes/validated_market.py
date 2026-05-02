@@ -16,6 +16,7 @@ class ValidatedMarket(BaseModel):
     category: str | None
     expiry: datetime | None
     volume24hr: float
+    price_change_day: float | None
 
     @field_validator("source")
     @classmethod
@@ -67,6 +68,11 @@ class ValidatedMarket(BaseModel):
             raise ValueError(f"volume24hr must be non negative, got: {v}")
         return v
 
+    @field_validator("price_change_day")
+    @classmethod
+    def price_change_day_non_negative(cls, v: float | None) -> float | None:
+        return v
+
     def to_dict(self) -> dict:
         return {
             "source": self.source,
@@ -78,6 +84,7 @@ class ValidatedMarket(BaseModel):
             "category": self.category,
             "expiry": self.expiry.isoformat() if self.expiry else None,
             "volume24hr" : self.volume24hr,
+            "price_change_day": self.price_change_day,
         }
 
     @classmethod
@@ -92,4 +99,5 @@ class ValidatedMarket(BaseModel):
             category=data["category"],
             expiry=datetime.fromisoformat(data["expiry"]) if data["expiry"] else None,
             volume24hr=data["volume24hr"],
+            price_change_day=data["price_change_day"]
         )
