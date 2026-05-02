@@ -27,7 +27,7 @@ class S3Client(Client):
         source = sources.pop()
 
         BATCH_SIZE = settings.batch_size
-        date_path = datetime.utcnow().strftime("%Y:%m:%d")
+        date_path = datetime.utcnow().strftime("%Y_%m_%d")
         timestamp = datetime.utcnow().strftime("%H%M%S_%f")
         keys = []
 
