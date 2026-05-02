@@ -110,10 +110,6 @@ class PolymarketFetcher(BaseFetcher):
         category = self._extract_category(event)
 
         for market in event.get("markets", []):
-            prob = self._parse_probability(market.get("outcomePrices"))
-            if prob is None:
-                continue
-
             volume = float(event.get("volume") or market.get("volumeNum") or 0)
             if volume < settings.polymarket_volume_min:
                 continue
@@ -136,6 +132,7 @@ class PolymarketFetcher(BaseFetcher):
             resolution_source = market.get("resolution_source")
             restricted_status = market.get("restricted", False)
 
+            prob=None
             if market_type == "Binary" and "Yes" in outcomes_list:
                 try:
                     yes_index = outcomes_list.index("Yes")
@@ -171,17 +168,6 @@ class PolymarketFetcher(BaseFetcher):
 
         return results
 
-    @staticmethod
-    def _parse_probability(outcome_prices_raw) -> float | None:
-        if not outcome_prices_raw:
-            return None
-        try:
-            prices = json.loads(outcome_prices_raw) if isinstance(outcome_prices_raw, str) else outcome_prices_raw
-            prob = float(prices[0])
-            return prob if 0.0 <= prob <= 1.0 else None
-        except (ValueError, IndexError, TypeError) as e:
-            logger.debug(f"Could not parse outcomePrices: {outcome_prices_raw} — {e}")
-            return None
 
     @staticmethod
     def _parse_expiry(end_date_str: str | None) -> datetime | None:
