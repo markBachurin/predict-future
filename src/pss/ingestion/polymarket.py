@@ -165,7 +165,8 @@ class PolymarketFetcher(BaseFetcher):
             return None
         try:
             return datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-        except ValueError:
+        except ValueError as e:
+            logger.error(f"_parse_expiry error : {e}")
             return None
 
     def _get_signal_tag_ids(self) -> list[str]:
