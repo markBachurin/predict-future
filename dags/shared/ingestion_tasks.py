@@ -29,13 +29,15 @@ def task_load_postgres(**context):
     validated = S3Client().download_validated_markets(validated_keys)
 
     pg = PostgresClient()
+    logger.info(f"Downloaded {len(validated)} validated markets")
     raw_ids = pg.upload_markets(validated)
+    logger.info(f"upload_markets returned {len(raw_ids)} raw_ids")
     if raw_ids:
         market_ids = pg.upsert_markets(raw_ids, validated, True)
         pg.insert_snapshots(market_ids, validated)
     else:
         logger.error(f"Error upserting markets")
-        raise
+        raise RuntimeError("upload_markets returned empty raw_ids")
 
 
 def ensure_schema():

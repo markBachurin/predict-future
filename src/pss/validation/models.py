@@ -7,14 +7,19 @@ logger = logging.getLogger(__name__)
 def validate_market(market: RawMarket) -> ValidatedMarket | None:
     try:
         return ValidatedMarket(
-            source = market.source,
-            external_id= market.external_id,
-            question= market.question,
-            probability= market.probability,
-            volume= market.volume,
-            category= market.category,
-            expiry= market.expiry,
-
+            source=market.source,
+            external_id=market.external_id,
+            question=market.question,
+            description=market.description,  # add this
+            probability=market.probability,
+            volume=market.volume,
+            category=market.category,
+            expiry=market.expiry,
+            volume24hr=market.volume24hr,
+            price_change_day=market.price_change_day,
+            price_change_week=market.price_change_week,
+            liquidity=market.liquidity,
+            tags=market.tags,
         )
     except Exception as e:
         logger.warning(f"Dropping invalid market  [{market.source}:{market.external_id}] - {e}")
