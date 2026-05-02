@@ -89,6 +89,22 @@ class PostgresClient(Client):
                     ]
                 )
 
+    def mark_processed(self, raw_market_ids: list[str]) -> None:
+        if not raw_market_ids:
+            return
+
+        with self._get_conn() as conn:
+            with conn.cursor() as cur:
+                execute_values(
+                    cur,
+                    """
+                        UPDATE raw_markets
+                        SET processed = true 
+                        WHERE id = %s
+                    """,
+                    [(raw_market_id, ) for raw_market_id in raw_market_ids]
+                )
+
     # private methods:
 
     @staticmethod
