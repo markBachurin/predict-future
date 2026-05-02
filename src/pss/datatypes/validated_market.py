@@ -126,7 +126,7 @@ class ValidatedMarket(BaseModel):
             tags=data["tags"],
             market_type=data.get("market_type"),
             outcomes=data.get("outcomes", []),
-            outcome_probabilities=data.get("outcomes", []),
+            outcome_probabilities=data.get("outcome_probabilities", []),
             resolution_source=data.get("resolution_source"),
             ticker=data.get("ticker"),
             restricted=data.get("restricted", False),
