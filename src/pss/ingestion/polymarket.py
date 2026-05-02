@@ -122,8 +122,8 @@ class PolymarketFetcher(BaseFetcher):
 
             volume24hr = float(market.get("volume24hr") or 0)
 
-            price_change_day = float(market["oneDayPriceChange"]) if market.get("oneDayPriceChange") is not None else None
-            price_change_week = float(market["oneWeekPriceChange"]) if market.get("oneWeekPriceChange") is not None else None
+            price_change_day = float(market.get("oneDayPriceChange")) if market.get("oneDayPriceChange") is not None else None
+            price_change_week = float(market.get("oneWeekPriceChange")) if market.get("oneWeekPriceChange") is not None else None
 
             liquidity = float(market.get("liquidity") or 0)
 
