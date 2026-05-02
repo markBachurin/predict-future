@@ -42,44 +42,52 @@ class PostgresClient(Client):
                 rows = execute_values(
                     cur,
                     """
-                        INSERT INTO markets(raw_market_id, source, external_id, question, category,
-                        probability, volume, expiry, is_valid)
+                        INSERT INTO markets(raw_market_id, source, external_id, question, description,
+                        category, probability, volume, volume24hr, price_change_day, price_change_week,
+                        liquidity, tags, expiry, is_valid)
                         VALUES %s
                         ON CONFLICT (source, external_id) DO UPDATE SET
                             probability = EXCLUDED.probability,
                             volume = EXCLUDED.volume,
+                            volume24hr = EXCLUDED.volume24hr,
+                            price_change_day = EXCLUDED.price_change_day,
+                            price_change_week = EXCLUDED.price_change_week,
+                            liquidity = EXCLUDED.liquidity,
+                            tags = EXCLUDED.tags,
+                            description = EXCLUDED.description,
                             category = EXCLUDED.category,
                             updated_at = now()
                         RETURNING id
                     """,
                     [
-                        (raw_ids[i], m.source, m.external_id, m.question, m.category, m.probability, m.volume, m.expiry, is_valid)
+                        (
+                            raw_ids[i], m.source, m.external_id, m.question, m.description,
+                            m.category, m.probability, m.volume, m.volume24hr, m.price_change_day,
+                            m.price_change_week, m.liquidity, m.tags, m.expiry, is_valid
+                        )
                         for i, m in enumerate(markets)
                     ],
                     fetch=True
                 )
                 return [str(row[0]) for row in rows]
 
-    def insert_snapshots(self, market_ids: list[str], markets: list[ValidatedMarket]) -> list[str]:
+    def insert_snapshots(self, market_ids: list[str], markets: list[ValidatedMarket]) -> None:
         if not markets:
-            return []
+            return
 
         with self._get_conn() as conn:
             with conn.cursor() as cur:
-                rows = execute_values(
+                execute_values(
                     cur,
                     """
-                        INSERT INTO market_snapshots (market_id, probability, volume)
+                        INSERT INTO market_snapshots (market_id, probability, volume, volume24hr, price_change_day, price_change_week)
                         VALUES %s
-                        RETURNING id
                     """,
                     [
-                        (market_ids[i], m.probability, m.volume)
+                        (market_ids[i], m.probability, m.volume, m.volume24hr, m.price_change_day, m.price_change_week)
                         for i, m in enumerate(markets)
-                    ],
-                    fetch=True
+                    ]
                 )
-            return [str(row[0]) for row in rows]
 
     # private methods:
 
