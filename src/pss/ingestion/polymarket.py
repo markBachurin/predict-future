@@ -13,6 +13,14 @@ logger = logging.getLogger(__name__)
 
 SIGNAL_KEYWORDS = {"economics", "finance", "crypto", "politics", "technology", "business"}
 
+EXCLUDED_CATEGORIES = {
+    "sports", "esports", "soccer", "nhl", "weather", "culture", "movies",
+    "eurovision", "tennis", "music", "madrid open", "awards", "formula 1",
+    "fifa world cup", "champions league", "games", "nba", "cristiano ronaldo",
+    "reality tv", "netflix", "anime", "malta", "football", "league of legends",
+    "celebrities", "pop culture", "entertainment",
+}
+
 class PolymarketFetcher(BaseFetcher):
     def __init__(self):
         self.session = requests.Session()
@@ -96,6 +104,7 @@ class PolymarketFetcher(BaseFetcher):
 
             for event in events:
                 all_markets.extend(self._parse_event(event))
+                if
 
             if len(events) < settings.polymarket_page_limit:
                 break
@@ -108,6 +117,15 @@ class PolymarketFetcher(BaseFetcher):
     def _parse_event(self, event: dict) -> list[RawMarket]:
         results = []
         category = self._extract_category(event)
+        tags = [t.get("label", "") for t in event.get("tags", [])]
+
+        # Ingestion-stage Category & Tag Filter
+        category_lower = category.lower() if category else ""
+        tags_lower = [t.lower() for t in tags]
+
+        if category_lower in EXCLUDED_CATEGORIES or any(t in EXCLUDED_CATEGORIES for t in tags_lower):
+            logger.debug(f"Skipping irrelevant market category/tag: {category} | {tags}")
+            return []
 
         for market in event.get("markets", []):
             volume = float(event.get("volume") or market.get("volumeNum") or 0)
