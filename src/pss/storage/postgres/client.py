@@ -88,11 +88,11 @@ class PostgresClient(Client):
                 execute_values(
                     cur,
                     """
-                        INSERT INTO market_snapshots (market_id, probability, volume, volume24hr, price_change_day, price_change_week)
+                        INSERT INTO market_snapshots (market_id, probability, outcome_probabilities, volume, volume24hr, price_change_day, price_change_week)
                         VALUES %s
                     """,
                     [
-                        (market_ids[i], m.probability, m.volume, m.volume24hr, m.price_change_day, m.price_change_week)
+                        (market_ids[i], m.probability, m.outcome_probabilities, m.volume, m.volume24hr, m.price_change_day, m.price_change_week)
                         for i, m in enumerate(markets)
                     ]
                 )

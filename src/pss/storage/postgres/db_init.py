@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS markets (
     question          TEXT          NOT NULL,
     description       TEXT,
     category          VARCHAR(128),
-    probability       NUMERIC(5,4)  NOT NULL,
+    probability       NUMERIC(5,4),
     volume            NUMERIC(18,2),
     volume24hr        NUMERIC(18,2),
     price_change_day  NUMERIC(8,4),
@@ -51,7 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_markets_volume24hr      ON markets (volume24hr);
 CREATE TABLE IF NOT EXISTS market_snapshots (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     market_id         UUID         NOT NULL REFERENCES markets(id),
-    probability       NUMERIC(5,4) NOT NULL,
+    probability       NUMERIC(5,4),
+    outcome_probabilities NUMERIC(5,4)[],
     volume            NUMERIC(18,2),
     volume24hr        NUMERIC(18,2),
     price_change_day  NUMERIC(8,4),
