@@ -129,8 +129,35 @@ class PolymarketFetcher(BaseFetcher):
 
             event_ticker = event.get("ticker")
             market_type = market.get("market_type")
-            outcomes_list = market.get("outcomes", [])
-            outcome_probabilities_list = market.get("probabilities", [])
+
+
+            outcomes_raw = market.get("outcomes", [])
+            if isinstance(outcomes_raw, str):
+                try:
+                    outcomes_list = json.loads(outcomes_raw)
+                except (json.JSONDecodeError, TypeError):
+                    outcomes_list = []
+            else:
+                outcomes_list = outcomes_raw if outcomes_raw is not None else []
+
+            probs_raw = market.get("probabilities", [])
+            if isinstance(probs_raw, str):
+                try:
+                    probs_list = json.loads(probs_raw)
+                except (json.JSONDecodeError, TypeError):
+                    probs_list = []
+            else:
+                probs_list = probs_raw if probs_raw is not None else []
+
+
+            outcome_probabilities_list = []
+            for p in probs_list:
+                try:
+                    if p is not None:
+                        outcome_probabilities_list.append(float(p))
+                except (ValueError, TypeError):
+                    continue
+
             resolution_source = market.get("resolution_source")
             restricted_status = market.get("restricted", False)
 
