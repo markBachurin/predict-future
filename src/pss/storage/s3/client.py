@@ -67,7 +67,14 @@ class S3Client(Client):
                 s3 = self._get_s3_client()
                 response = s3.get_object(Bucket=settings.s3_bucket, Key=key)
                 data = json.loads(response["Body"].read().decode("utf-8"))
-                markets.extend([market_class.from_dict(m) for m in data])
+                
+                for m in data:
+                    try:
+                        markets.append(market_class.from_dict(m))
+                    except Exception as e:
+                        logger.warning(f"Skipping malformed/invalid market in S3 batch {key}: {e}")
+                        continue
+
             except ClientError as e:
                 logger.error(f"S3 download failed for key {key} : {e}")
                 raise
