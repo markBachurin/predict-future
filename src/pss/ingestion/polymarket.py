@@ -40,7 +40,7 @@ class PolymarketFetcher(BaseFetcher):
             "active" : "true",
             "closed": "false",
             "archived": "false",
-            "volume_min": settings.polymarket_volume_min,
+            "restricted": "false",
             "order" : "volume24hr",
             "end_date_min" : now.isoformat(),
             "end_date_max": expiry_max.isoformat(),
@@ -61,8 +61,8 @@ class PolymarketFetcher(BaseFetcher):
                 "active": "true",
                 "closed": "false",
                 "archived": "false",
+                "restricted": "false",
                 "tag_id" : tag_id,
-                "volume_min": settings.polymarket_volume_min,
                 "order": "volume24hr",
                 "ascending":"false",
                 "end_date_min": now.isoformat(),
@@ -122,6 +122,8 @@ class PolymarketFetcher(BaseFetcher):
             price_change_week = float(market.get("oneWeekPriceChange")) if market.get("oneWeekPriceChange") is not None else None
 
             liquidity = float(market.get("liquidity") or 0)
+            if liquidity < settings.polymarket_liquidity_min:
+                continue
 
             tags=[t.get("label", "") for t in event.get("tags", [])]
 
