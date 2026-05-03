@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     polymarket_base_url: str
     polymarket_volume_min: float
     polymarket_page_limit: int
-    polymarket_liquidity_min: float = 0.0
+    polymarket_liquidity_min: float
 
     # Kalshi
     kalshi_base_url: str
