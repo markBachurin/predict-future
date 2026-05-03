@@ -104,7 +104,6 @@ class PolymarketFetcher(BaseFetcher):
 
             for event in events:
                 all_markets.extend(self._parse_event(event))
-                if
 
             if len(events) < settings.polymarket_page_limit:
                 break
@@ -146,9 +145,10 @@ class PolymarketFetcher(BaseFetcher):
             tags=[t.get("label", "") for t in event.get("tags", [])]
 
             event_ticker = event.get("ticker")
-            market_type = market.get("market_type")
-
-
+            
+            # Infer market_type if missing
+            market_type = market.get("market_type") or market.get("marketType")
+            
             outcomes_raw = market.get("outcomes", [])
             if isinstance(outcomes_raw, str):
                 try:
@@ -158,7 +158,15 @@ class PolymarketFetcher(BaseFetcher):
             else:
                 outcomes_list = outcomes_raw if outcomes_raw is not None else []
 
-            probs_raw = market.get("probabilities", [])
+            if not market_type:
+                if len(outcomes_list) == 2:
+                    market_type = "Binary"
+                elif len(outcomes_list) > 2:
+                    market_type = "Multi-Outcome"
+                else:
+                    market_type = "Scalar"
+
+            probs_raw = market.get("outcomePrices") or market.get("probabilities") or []
             if isinstance(probs_raw, str):
                 try:
                     probs_list = json.loads(probs_raw)
@@ -166,7 +174,6 @@ class PolymarketFetcher(BaseFetcher):
                     probs_list = []
             else:
                 probs_list = probs_raw if probs_raw is not None else []
-
 
             outcome_probabilities_list = []
             for p in probs_list:
@@ -176,23 +183,20 @@ class PolymarketFetcher(BaseFetcher):
                 except (ValueError, TypeError):
                     continue
 
-            resolution_source = market.get("resolution_source")
+            resolution_source = market.get("resolution_source") or market.get("resolutionSource")
             restricted_status = market.get("restricted", False)
 
-            prob=None                   # for a non-binary markets, prob remains None, indicating that a single probability is not directly applicable!!!!!!
-            if market_type == "Binary" and "Yes" in outcomes_list:
-                try:
+            prob=None
+            if market_type == "Binary" and len(outcomes_list) == 2 and len(outcome_probabilities_list) == 2:
+                if "Yes" in outcomes_list:
                     yes_index = outcomes_list.index("Yes")
-                    if 0 <= yes_index <= len(outcome_probabilities_list):
-                        prob = outcome_probabilities_list[yes_index]
-                        if not (0.0 <= prob <= 1.0):
-                            logger.warning(f"Binary 'Yes' probability out of range(0.0 - 1.0) for market {market.get('id')} : {prob}")
-                    else:
-                        logger.warning(f"Binary 'Yes' outcome index out of bounds for market {market.get('id')}. Setting prob to None.")
-                except ValueError:
-                    logger.warning(f"Could not find 'Yes' outcome for binary market {market.get('id')}. Setting prob to None.")
-                except IndexError:
-                    logger.warning(f"Outcome/probability list length mismatch for binary market {market.get('id')}. Setting prob to None.")
+                    prob = outcome_probabilities_list[yes_index]
+                else:
+                    prob = outcome_probabilities_list[0]
+            
+            if prob is not None and not (0.0 <= prob <= 1.0):
+                logger.warning(f"Probability out of range for market {market.get('id')}: {prob}. Setting to None.")
+                prob = None
 
 
             results.append(RawMarket(
