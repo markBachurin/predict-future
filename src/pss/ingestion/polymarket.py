@@ -132,16 +132,21 @@ class PolymarketFetcher(BaseFetcher):
             resolution_source = market.get("resolution_source")
             restricted_status = market.get("restricted", False)
 
-            prob=None
+            prob=None                   # for a non-binary markets, prob remains None, indicating that a single probability is not directly applicable!!!!!!
             if market_type == "Binary" and "Yes" in outcomes_list:
                 try:
                     yes_index = outcomes_list.index("Yes")
-                    prob = outcome_probabilities_list[yes_index]
-                except (ValueError, IndexError):
-                    logger.warning(f"Could not find 'Yes' outcome probability for binary market {market.get('id')}")
-                    prob = None
-            elif market_type in ["Multi-Outcome", "Scalar", "NegRisk"]:
-                ...
+                    if 0 <= yes_index <= len(outcome_probabilities_list):
+                        prob = outcome_probabilities_list[yes_index]
+                        if not (0.0 <= prob <= 1.0):
+                            logger.warning(f"Binary 'Yes' probability out of range(0.0 - 1.0) for market {market.get('id')} : {prob}")
+                    else:
+                        logger.warning(f"Binary 'Yes' outcome index out of bounds for market {market.get('id')}. Setting prob to None.")
+                except ValueError:
+                    logger.warning(f"Could not find 'Yes' outcome for binary market {market.get('id')}. Setting prob to None.")
+                except IndexError:
+                    logger.warning(f"Outcome/probability list length mismatch for binary market {market.get('id')}. Setting prob to None.")
+
 
             results.append(RawMarket(
                 source="polymarket",
