@@ -18,7 +18,7 @@ class ValidatedMarket(BaseModel):
     volume24hr: float
     price_change_day: float | None
     price_change_week: float | None
-    liquidity: float
+    liquidity: float | None
     tags : list[str] = []
     market_type: str | None = None
     outcomes: list[str] = []
@@ -50,10 +50,8 @@ class ValidatedMarket(BaseModel):
 
     @field_validator("probability")
     @classmethod
-    def probability_in_range(cls, v: float | None) -> float:
-        if v is None:
-            raise ValueError(f"Probability is required")
-        if not (0.0 <= v <= 1.0):
+    def probability_in_range(cls, v: float | None) -> float | None:
+        if v is not None and not (0.0 <= v <= 1.0):
             raise ValueError(f"Probability must be between 0.0 and 1.0, got {v}")
         return v
 
@@ -80,10 +78,25 @@ class ValidatedMarket(BaseModel):
 
     @field_validator("liquidity")
     @classmethod
-    def liquidity_non_negative(cls, v: float) -> float:
+    def liquidity_non_negative(cls, v: float | None) -> float | None:
         if v is not None and v < 0:
             raise ValueError(f"liquidity must be non negative, got: {v}")
         return v
+
+    @field_validator("outcome_probabilities")
+    @classmethod
+    def outcome_probs_in_range(cls, v: list[float]) -> list[float]:
+        for prob in v:
+            if not (0.0 <= prob <= 1.0):
+                raise ValueError(f"Probability {prob} outside [0,1]")
+        return v
+
+    @model_validator(mode="after")
+    def outcomes_match_probs(self):
+        if self.outcomes and self.outcome_probabilities:
+            if len(self.outcomes) != len(self.outcome_probabilities):
+                raise ValueError("Outcomes and outcome_probabilities length mismatch")
+        return self
 
     def to_dict(self) -> dict:
         return {
@@ -110,6 +123,31 @@ class ValidatedMarket(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict) -> "ValidatedMarket":
+        import json
+
+        outcomes = data.get("outcomes", [])
+        if isinstance(outcomes, str):
+            try:
+                outcomes = json.loads(outcomes)
+            except (json.JSONDecodeError, TypeError):
+                outcomes = []
+
+        probs = data.get("outcome_probabilities", [])
+        if isinstance(probs, str):
+            try:
+                probs = json.loads(probs)
+            except (json.JSONDecodeError, TypeError):
+                probs = []
+
+        # Ensure floats
+        outcome_probabilities = []
+        for p in probs:
+            try:
+                if p is not None:
+                    outcome_probabilities.append(float(p))
+            except (ValueError, TypeError):
+                continue
+
         return cls(
             source=data["source"],
             external_id=data["external_id"],
@@ -125,8 +163,8 @@ class ValidatedMarket(BaseModel):
             liquidity=data["liquidity"],
             tags=data["tags"],
             market_type=data.get("market_type"),
-            outcomes=data.get("outcomes", []),
-            outcome_probabilities=data.get("outcome_probabilities", []),
+            outcomes=outcomes,
+            outcome_probabilities=outcome_probabilities,
             resolution_source=data.get("resolution_source"),
             ticker=data.get("ticker"),
             restricted=data.get("restricted", False),

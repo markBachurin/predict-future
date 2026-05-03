@@ -10,7 +10,7 @@ def validate_market(market: RawMarket) -> ValidatedMarket | None:
             source=market.source,
             external_id=market.external_id,
             question=market.question,
-            description=market.description,  # add this
+            description=market.description,
             probability=market.probability,
             volume=market.volume,
             category=market.category,
