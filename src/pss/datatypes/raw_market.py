@@ -48,6 +48,30 @@ class RawMarket:
 
     @classmethod
     def from_dict(cls, data: dict) -> "RawMarket":
+        import json
+
+        outcomes = data.get("outcomes", [])
+        if isinstance(outcomes, str):
+            try:
+                outcomes = json.loads(outcomes)
+            except (json.JSONDecodeError, TypeError):
+                outcomes = []
+
+        probs = data.get("outcome_probabilities", [])
+        if isinstance(probs, str):
+            try:
+                probs = json.loads(probs)
+            except (json.JSONDecodeError, TypeError):
+                probs = []
+
+        outcome_probabilities = []
+        for p in probs:
+            try:
+                if p is not None:
+                    outcome_probabilities.append(float(p))
+            except (ValueError, TypeError):
+                continue
+
         return cls(
             source=data["source"],
             external_id=data["external_id"],
@@ -63,8 +87,8 @@ class RawMarket:
             liquidity=data["liquidity"],
             tags=data["tags"],
             market_type=data.get("market_type"),
-            outcomes=data.get("outcomes", []),
-            outcome_probabilities=data.get("outcome_probabilities", []),
+            outcomes=outcomes,
+            outcome_probabilities=outcome_probabilities,
             resolution_source=data.get("resolution_source"),
             ticker=data.get("ticker"),
             restricted=data.get("restricted", False),
