@@ -14,11 +14,19 @@ logger = logging.getLogger(__name__)
 SIGNAL_KEYWORDS = {"economics", "finance", "crypto", "politics", "technology", "business"}
 
 EXCLUDED_CATEGORIES = {
-    "sports", "esports", "soccer", "nhl", "weather", "culture", "movies",
-    "eurovision", "tennis", "music", "madrid open", "awards", "formula 1",
-    "fifa world cup", "champions league", "games", "nba", "cristiano ronaldo",
-    "reality tv", "netflix", "anime", "malta", "football", "league of legends",
-    "celebrities", "pop culture", "entertainment",
+    "sports", "esports", "soccer", "nhl", "weather", "culture", "movies", 
+    "eurovision", "tennis", "music", "madrid open", "awards", "formula 1", 
+    "fifa world cup", "champions league", "games", "nba", "cristiano ronaldo", 
+    "reality tv", "netflix", "anime", "malta", "football", "league of legends", 
+    "celebrities", "pop culture", "entertainment", "boxing", "ufc", "horse racing",
+    "cricket", "golf", "baseball", "rugby", "hockey"
+}
+
+NOISE_KEYWORDS = {
+    "youtube", "tiktok", "instagram", "follower", "subscriber", "dating", 
+    "marriage", "divorce", "oscar", "grammy", "emmy", "mrbeast", "streamer",
+    "box office", "trailer", "rotten tomatoes", "metacritic", "album", 
+    "concert", "tour", "leak", "spoiler", "death", "hospitalized"
 }
 
 class PolymarketFetcher(BaseFetcher):
@@ -117,64 +125,39 @@ class PolymarketFetcher(BaseFetcher):
         results = []
         category = self._extract_category(event)
         tags = [t.get("label", "") for t in event.get("tags", [])]
+        title = event.get("title", "").lower()
 
-        # Ingestion-stage Category & Tag Filter
+        # ingestion-stage category & tag filter
         category_lower = category.lower() if category else ""
         tags_lower = [t.lower() for t in tags]
 
         if category_lower in EXCLUDED_CATEGORIES or any(t in EXCLUDED_CATEGORIES for t in tags_lower):
-            logger.debug(f"Skipping irrelevant market category/tag: {category} | {tags}")
+            logger.debug(f"Skipping irrelevant category/tag: {category} | {tags}")
             return []
 
+        if any(kw in title for kw in NOISE_KEYWORDS):
+            logger.debug(f"Skipping event due to noise keyword: {title}")
+            return []
+
+        parsed_markets = []
         for market in event.get("markets", []):
             volume = float(event.get("volume") or market.get("volumeNum") or 0)
             if volume < settings.polymarket_volume_min:
                 continue
 
-            description = market.get("description") or event.get("description")
-
-            volume24hr = float(market.get("volume24hr") or 0)
-
-            price_change_day = float(market.get("oneDayPriceChange")) if market.get("oneDayPriceChange") is not None else None
-            price_change_week = float(market.get("oneWeekPriceChange")) if market.get("oneWeekPriceChange") is not None else None
-
             liquidity = float(market.get("liquidity") or 0)
             if liquidity < settings.polymarket_liquidity_min:
                 continue
 
-            tags=[t.get("label", "") for t in event.get("tags", [])]
-
-            event_ticker = event.get("ticker")
-            
-            # Infer market_type if missing
             market_type = market.get("market_type") or market.get("marketType")
-            
             outcomes_raw = market.get("outcomes", [])
-            if isinstance(outcomes_raw, str):
-                try:
-                    outcomes_list = json.loads(outcomes_raw)
-                except (json.JSONDecodeError, TypeError):
-                    outcomes_list = []
-            else:
-                outcomes_list = outcomes_raw if outcomes_raw is not None else []
+            outcomes_list = json.loads(outcomes_raw) if isinstance(outcomes_raw, str) else (outcomes_raw or [])
 
             if not market_type:
-                if len(outcomes_list) == 2:
-                    market_type = "Binary"
-                elif len(outcomes_list) > 2:
-                    market_type = "Multi-Outcome"
-                else:
-                    market_type = "Scalar"
+                market_type = "Binary" if len(outcomes_list) == 2 else "Multi-Outcome"
 
             probs_raw = market.get("outcomePrices") or market.get("probabilities") or []
-            if isinstance(probs_raw, str):
-                try:
-                    probs_list = json.loads(probs_raw)
-                except (json.JSONDecodeError, TypeError):
-                    probs_list = []
-            else:
-                probs_list = probs_raw if probs_raw is not None else []
-
+            probs_list = json.loads(probs_raw) if isinstance(probs_raw, str) else (probs_raw or [])
             outcome_probabilities_list = []
             for p in probs_list:
                 try:
@@ -183,44 +166,73 @@ class PolymarketFetcher(BaseFetcher):
                 except (ValueError, TypeError):
                     continue
 
-            resolution_source = market.get("resolution_source") or market.get("resolutionSource")
-            restricted_status = market.get("restricted", False)
-
-            prob=None
+            # extract single probability for Binary markets
+            prob = None
             if market_type == "Binary" and len(outcomes_list) == 2 and len(outcome_probabilities_list) == 2:
-                if "Yes" in outcomes_list:
-                    yes_index = outcomes_list.index("Yes")
-                    prob = outcome_probabilities_list[yes_index]
-                else:
-                    prob = outcome_probabilities_list[0]
-            
+                yes_index = outcomes_list.index("Yes") if "Yes" in outcomes_list else 0
+                prob = outcome_probabilities_list[yes_index]
+
             if prob is not None and not (0.0 <= prob <= 1.0):
-                logger.warning(f"Probability out of range for market {market.get('id')}: {prob}. Setting to None.")
                 prob = None
 
+            parsed_markets.append({
+                "market": market,
+                "market_type": market_type,
+                "outcomes": outcomes_list,
+                "probs": outcome_probabilities_list,
+                "prob": prob,
+                "volume": volume,
+                "liquidity": liquidity
+            })
 
-            results.append(RawMarket(
-                source="polymarket",
-                external_id=f"polymarket:{market.get('conditionId', market.get('id'))}",
-                question=market.get("question", event.get("title", "")),
-                description=description,
-                probability=prob,
-                volume=volume,
-                category=category,
-                expiry=self._parse_expiry(event.get("endDate")),
-                volume24hr=volume24hr,
-                price_change_day=price_change_day,
-                price_change_week=price_change_week,
-                liquidity=liquidity,
-                tags=tags,
-                market_type=market_type,
-                outcomes=outcomes_list,
-                outcome_probabilities=outcome_probabilities_list,
-                resolution_source=resolution_source,
-                ticker=event_ticker,
-                restricted=restricted_status,
+        if not parsed_markets:
+            return []
 
-            ))
+        # clustered Event Deduplication, center-of-gravity, select the single market closest to 0.5 probability, if no binary probability, fall back to highest volume
+        best_market_data = None
+        min_distance = 1.1  # max distance is 0.5
+
+        for m_data in parsed_markets:
+            p = m_data["prob"]
+            if p is not None:
+                # market has a binary probability
+                distance = abs(p - 0.5)
+                if best_market_data is None or best_market_data["prob"] is None or distance < min_distance:
+                    min_distance = distance
+                    best_market_data = m_data
+            else:
+                # no binary probability (multi-outcome or missing price)
+                if best_market_data is None:
+                    best_market_data = m_data
+                elif best_market_data["prob"] is None and m_data["volume"] > best_market_data["volume"]:
+                    # both have no prob, pick the one with more volume
+                    best_market_data = m_data
+
+        if not best_market_data:
+            return []
+
+        m = best_market_data["market"]
+        results.append(RawMarket(
+            source="polymarket",
+            external_id=f"polymarket:{m.get('conditionId', m.get('id'))}",
+            question=m.get("question", event.get("title", "")),
+            description=m.get("description") or event.get("description"),
+            probability=best_market_data["prob"],
+            volume=best_market_data["volume"],
+            category=category,
+            expiry=self._parse_expiry(event.get("endDate")),
+            volume24hr=float(m.get("volume24hr") or 0),
+            price_change_day=float(m.get("oneDayPriceChange")) if m.get("oneDayPriceChange") is not None else None,
+            price_change_week=float(m.get("oneWeekPriceChange")) if m.get("oneWeekPriceChange") is not None else None,
+            liquidity=best_market_data["liquidity"],
+            tags=tags,
+            market_type=best_market_data["market_type"],
+            outcomes=best_market_data["outcomes"],
+            outcome_probabilities=best_market_data["probs"],
+            resolution_source=m.get("resolution_source") or m.get("resolutionSource"),
+            ticker=event.get("ticker"),
+            restricted=m.get("restricted", False),
+        ))
 
         return results
 
