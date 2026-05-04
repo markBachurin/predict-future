@@ -74,4 +74,41 @@ class MarketClassiefier:
             return await self._unit_reason_market(market)
 
     async def _unit_reason_market(self, market: dict) -> dict:
-        ...
+        system = (
+            "You are a Senior Investment Analyst at BIT Capital. "
+            "Analyze the following prediction market and its potential impact on our portfolio. \n\n"
+            F"HOLDINGS & SECTORS: \n{self.llm.get_holdings_context()}\n\n"
+            "Analyze the sentiment (bullish/bearish) for the specific tickers involved. "
+            "If the market probability is high (>0.7) for an event that helps a ticker, it's bullish."
+            "If it's low (<0.3) for a helpful event, it's bearish.\n"
+            "Return a JSON obect with:\n"
+            "- 'tickers' (list of identified tickers from BIT Capital holdings)\n"
+            "- 'sectors' (list of relevant sectors)\n"
+            "- 'direction' (bullish/bearish/neutral)\n"
+            "- 'llm_confidence' (float 0-1, how certain you are of this impact)\n"
+            "- 'foundational_details' (brief string: the core facts of the market)\n"
+            "- 'circumstances' (brief string: what specific macro/political triggers are at play)\n"
+            "- 'reasoning' (detailed string: why this matters for the tickers involved)"
+        )
+
+        prompt = (
+            f"Question: {market['question']}\n"
+            f"Current Probability: {market['probability']}\n"
+            f"Outcomes: {market.get('outcomes', [])}\n"
+            f"Outcome Probs: {market.get('outcome_probabilities', [])}\n"
+            f"Description: {market.get('description', '')}\n"
+        )
+
+        try:
+            return await self.llm.get_json_completion(prompt, system=system, model=self.llm.reasoner_model)
+        except Exception as e:
+            logger.error(f"Reasoner failed for market {market['market_id']}: {e}")
+            return {
+                "tickers": [],
+                "sectors": [],
+                "direction": "neutral",
+                "llm_confidence": 0.0,
+                "foundational_details": "Analysis failed.",
+                "circumstances": "",
+                "reasoning": str(e)
+            }
