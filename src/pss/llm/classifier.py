@@ -9,7 +9,8 @@ class MarketClassiefier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient):
         self.llm = llm_client
         self.pg = pg_client
-        self.semaphore = asyncio.Semaphore(50)
+        self.semaphore1 = asyncio.Semaphore(50)
+        self.semaphore2 = asyncio.Semaphore(10)
 
     async def classify_all(self):
         # main entry point for classification pipeline
@@ -43,7 +44,7 @@ class MarketClassiefier:
 
     # semaphore:
     async def _gatekeep_market(self, m: dict) -> dict:
-        async with self.semaphore:
+        async with self.semaphore1:
             return await self._unit_gatekeep_market(m)
 
     async def _unit_gatekeep_market(self, market: dict) -> dict:
@@ -66,3 +67,11 @@ class MarketClassiefier:
         except Exception as e:
             logger.error(f"Gatekeeper failed for market {market['market_id']} :{e}")
             return {'is_relevant': False, "confidence": 0.0}
+
+
+    async def _reason_market(self, market: dict) -> dict:
+        async with self.semaphore2:
+            return await self._unit_reason_market(market)
+
+    async def _unit_reason_market(self, market: dict) -> dict:
+        ...
