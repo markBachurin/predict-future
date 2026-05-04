@@ -9,6 +9,7 @@ class MarketClassiefier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient):
         self.llm = llm_client
         self.pg = pg_client
+        self.semaphore = asyncio.Semaphore(50)
 
     async def classify_all(self):
         # main entry point for classification pipeline
@@ -39,7 +40,13 @@ class MarketClassiefier:
         # pass 2, reasoning
 
     # private
-    async def _gatekeep_market(self, market: dict) -> dict:
+
+    # semaphore:
+    async def _gatekeep_market(self, m: dict) -> dict:
+        async with self.semaphore:
+            return await self._unit_gatekeep_market(m)
+
+    async def _unit_gatekeep_market(self, market: dict) -> dict:
         system = (
             "You are a gatekeeper for BIT Capital, a tech-focused investment fund."
             "Your job is to determine if a prediction market is RELEVANT to our portfolio holdings or focus sectors. \n\n"
