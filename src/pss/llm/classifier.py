@@ -39,6 +39,34 @@ class MarketClassiefier:
             self.pg.mark_processed(raw_ids)
 
         # pass 2, reasoning
+        resoner_tasks = [self._reason_market(m) for m in relevant_markets]
+        reasoner_results = await asyncio.gather(*resoner_tasks)
+
+        classifications = []
+        for market, analysis in zip(relevant_markets, reasoner_results):
+            score = self._calculate_weighted_score(market, analysis)
+
+            classification = {
+                "market_id": market["market_id"],
+                "is_relevant": True,
+                "tickers": analysis.get("tickers", []),
+                "sectors": analysis.get("sectors", []),
+                "direction": analysis.get("direction", "neutral"),
+                "llm_confidence": analysis.get("llm_confidence", 0.0),
+                "foundational_details": analysis.get("foundational_details", ""),
+                "circumstances": analysis.get("circumstances", ""),
+                "reasoning": analysis.get("reasoning", ""),
+                "weighted_score": score
+            }
+            classifications.append(classification)
+
+        if classifications:
+            self.pg.insert_classifications(classifications)
+            logger.info(f"Inserted {len(classifications)} classifications into database.")
+
+        raw_ids = [m["raw_market_id"] for m in markets]
+        self.pg.mark_processed(raw_ids)
+
 
     # private
 
@@ -112,3 +140,6 @@ class MarketClassiefier:
                 "circumstances": "",
                 "reasoning": str(e)
             }
+
+    def _calculate_weighted_score(self, market: dict, analysis: dict) -> float:
+        ...
