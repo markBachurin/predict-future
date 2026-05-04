@@ -10,8 +10,8 @@ class MarketClassifier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient):
         self.llm = llm_client
         self.pg = pg_client
-        self.semaphore1 = asyncio.Semaphore(50)
-        self.semaphore2 = asyncio.Semaphore(10)
+        self.semaphore1 = asyncio.Semaphore(settings.gatekeep_thread_limit)
+        self.semaphore2 = asyncio.Semaphore(settings.reason_thread_limit)
 
     async def classify_all(self):
         # main entry point for classification pipeline
@@ -136,7 +136,7 @@ class MarketClassifier:
         import math
 
         llm_conf = analysis.get("llm_confidence", 0.0)
-        vol = max(market.get("volume"), settings.polymarket_volume_min)
+        vol = max(market.get("volume", 0.0), settings.polymarket_volume_min)
 
         log_vol = math.log(vol)
         normal_vol = (log_vol - 0.0) / (16.1 - 10.8)
