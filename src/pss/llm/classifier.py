@@ -6,7 +6,7 @@ from pss_config.config import settings
 
 logger = logging.getLogger(__name__)
 
-class MarketClassiefier:
+class MarketClassifier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient):
         self.llm = llm_client
         self.pg = pg_client
@@ -40,8 +40,8 @@ class MarketClassiefier:
             self.pg.mark_processed(raw_ids)
 
         # pass 2, reasoning
-        resoner_tasks = [self._reason_market(m) for m in relevant_markets]
-        reasoner_results = await asyncio.gather(*resoner_tasks)
+        reasoner_tasks = [self._reason_market(m) for m in relevant_markets]
+        reasoner_results = await asyncio.gather(*reasoner_tasks)
 
         classifications = []
         for market, analysis in zip(relevant_markets, reasoner_results):
@@ -84,12 +84,7 @@ class MarketClassiefier:
             "Return a JSON object with 'is_relevant' (bool) and 'confidence' (float 0.0 - 1.0)."
         )
 
-        prompt = (
-            f"Market Question: {market['question']}\n"
-            f"Description: {market.get('description', '')}\n"
-            f"Tags: {market.get('tags'), []} \n"
-            f"Category: {market.get('category', '')}\n"
-        )
+        prompt = self._get_prompt(market)
 
         try:
             return await self.llm.get_json_completion(prompt, system=system, model=self.llm.gatekeeper_model)
@@ -120,13 +115,7 @@ class MarketClassiefier:
             "- 'reasoning' (detailed string: why this matters for the tickers involved)"
         )
 
-        prompt = (
-            f"Question: {market['question']}\n"
-            f"Current Probability: {market['probability']}\n"
-            f"Outcomes: {market.get('outcomes', [])}\n"
-            f"Outcome Probs: {market.get('outcome_probabilities', [])}\n"
-            f"Description: {market.get('description', '')}\n"
-        )
+        prompt = self._get_prompt(market)
 
         try:
             return await self.llm.get_json_completion(prompt, system=system, model=self.llm.reasoner_model)
@@ -142,7 +131,8 @@ class MarketClassiefier:
                 "reasoning": str(e)
             }
 
-    def _calculate_weighted_score(self, market: dict, analysis: dict) -> float:
+    @staticmethod
+    def _calculate_weighted_score(market: dict, analysis: dict) -> float:
         import math
 
         llm_conf = analysis.get("llm_confidence", 0.0)
@@ -158,3 +148,19 @@ class MarketClassiefier:
 
         score = (llm_conf * 0.4) + (normal_vol * 0.4) + (norm_price * 0.2)
         return round(score, 4)
+
+    @staticmethod
+    def _get_prompt(market: dict) -> str:
+        return (
+            f"Market Question: {market['question']}\n"
+            f"Description: {market.get('description', '')}\n"
+            f"Tags: {market.get('tags'), []} \n"
+            f"Category: {market.get('category', '')}\n"
+            f"Probability: {market.get('probability')}\n"
+            f"Volume 24 hours: {market.get('volume24hr')}\n"
+            f"Price change 24 hours: {market.get('price_change_day', 0.0)}\n"
+            f"Price change week: {market.get('price_change_week', 0.0)}\n"
+            f"Liquidity: {market.get('liquidity', 0.0)}\n"
+            f"Outcomes: {market.get('outcomes', [])}\n"
+            f"Outcome Probabilities: {market.get('outcome_probabilities', [])}\n"
+        )
