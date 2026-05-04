@@ -2,6 +2,7 @@ import logging
 import asyncio
 from src.pss.llm.client import LLMClient
 from src.pss.storage.postgres.client import PostgresClient
+from pss_config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -142,4 +143,18 @@ class MarketClassiefier:
             }
 
     def _calculate_weighted_score(self, market: dict, analysis: dict) -> float:
-        ...
+        import math
+
+        llm_conf = analysis.get("llm_confidence", 0.0)
+        vol = max(market.get("volume"), settings.polymarket_volume_min)
+
+        log_vol = math.log(vol)
+        normal_vol = (log_vol - 0.0) / (16.1 - 10.8)
+        normal_vol = max(0, min(1.0, normal_vol))
+
+        price_change = abs(market.get("price_change_day", 0.0))
+
+        norm_price = min(price_change / 0.1, 1.0)
+
+        score = (llm_conf * 0.4) + (normal_vol * 0.4) + (norm_price * 0.2)
+        return round(score, 4)
