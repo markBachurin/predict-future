@@ -1,7 +1,6 @@
 import anthropic
 import logging
 import json
-import asyncio
 from typing import Any
 from pss_config.config import settings
 from src.pss.llm.holdings import BIT_CAPITAL_HOLDINGS
