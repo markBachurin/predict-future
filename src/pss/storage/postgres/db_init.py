@@ -60,6 +60,24 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     recorded_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_snapshots_market_time ON market_snapshots (market_id, recorded_at);
+
+CREATE TABLE IF NOT EXISTS llm_classifications (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    market_id           UUID         NOT NULL REFERENCES markets(id),
+    is_relevant         BOOLEAN      NOT NULL DEFAULT false,
+    tickers             TEXT[]       NOT NULL DEFAULT '{}',
+    sectors             TEXT[]       NOT NULL DEFAULT '{}',
+    direction           VARCHAR(20), -- Bullish, Bearish, Neutral
+    foundational_details TEXT,
+    circumstances       TEXT,
+    reasoning           TEXT,
+    llm_confidence      NUMERIC(5,4),
+    weighted_score      NUMERIC(5,4),
+    classified_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (market_id)
+);
+CREATE INDEX IF NOT EXISTS idx_llm_classifications_market_id ON llm_classifications (market_id);
+CREATE INDEX IF NOT EXISTS idx_llm_classifications_relevant ON llm_classifications (is_relevant);
 """
 
 def db_init() -> None:

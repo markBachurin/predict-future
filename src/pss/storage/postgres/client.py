@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2.extras import execute_values, Json
+from psycopg2.extras import execute_values, Json, RealDictCursor
 from contextlib import contextmanager
 from pss_config.config import settings
 from src.pss.datatypes.raw_market import RawMarket
@@ -97,6 +97,34 @@ class PostgresClient(Client):
                     ]
                 )
 
+    def get_markets_for_classification(self) -> list[dict]:
+        with self._get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT 
+                        m.id as market_id,
+                        m.question,
+                        m.description,
+                        m.tags,
+                        m.category,
+                        m.probability,
+                        m.volume,
+                        m.volume24hr,
+                        m.price_change_day,
+                        m.price_change_week,
+                        m.liquidity,
+                        m.outcomes,
+                        m.outcome_probabilities,
+                        r.id as raw_market_id
+                    FROM markets m
+                    JOIN raw_markets r ON m.raw_market_id = r.id
+                    LEFT JOIN llm_classifications lc ON m.id = lc.market_id
+                    WHERE r.processed = false
+                    AND lc.id IS NULL
+                """)
+                return [dict(row) for row in cur.fetchall()]
+
+
     def mark_processed(self, raw_market_ids: list[str]) -> None:
         if not raw_market_ids:
             return
@@ -105,12 +133,45 @@ class PostgresClient(Client):
             with conn.cursor() as cur:
                 execute_values(
                     cur,
+                    "UPDATE raw_markets SET processed = true WHERE id = %s",
+                    [(id,) for id in raw_market_ids]
+                )
+
+    def insert_classifications(self, results: list[dict]) -> None:
+        if not results:
+            return
+
+        with self._get_conn() as conn:
+            with conn.cursor() as cur:
+                execute_values(
+                    cur,
                     """
-                        UPDATE raw_markets
-                        SET processed = true 
-                        WHERE id = %s
+                        INSERT INTO llm_classifications (
+                            market_id, is_relevant, tickers, sectors, direction,
+                            foundational_details, circumstances, reasoning, 
+                            llm_confidence, weighted_score
+                        )
+                        VALUES %s
+                        ON CONFLICT (market_id) DO UPDATE SET
+                            is_relevant = EXCLUDED.is_relevant,
+                            tickers = EXCLUDED.tickers,
+                            sectors = EXCLUDED.sectors,
+                            direction = EXCLUDED.direction,
+                            foundational_details = EXCLUDED.foundational_details,
+                            circumstances = EXCLUDED.circumstances,
+                            reasoning = EXCLUDED.reasoning,
+                            llm_confidence = EXCLUDED.llm_confidence,
+                            weighted_score = EXCLUDED.weighted_score,
+                            classified_at = now()
                     """,
-                    [(raw_market_id, ) for raw_market_id in raw_market_ids]
+                    [
+                        (
+                            r['market_id'], r['is_relevant'], r['tickers'], r['sectors'], r['direction'],
+                            r.get('foundational_details'), r.get('circumstances'), r['reasoning'],
+                            r['llm_confidence'], r['weighted_score']
+                        )
+                        for r in results
+                    ]
                 )
 
     # private methods:
