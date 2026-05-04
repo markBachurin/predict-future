@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class MarketClassiefier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient):
-        self.llm = llm_client,
+        self.llm = llm_client
         self.pg = pg_client
 
     async def classify_all(self):
@@ -39,5 +39,23 @@ class MarketClassiefier:
         # pass 2, reasoning
 
     # private
-    def _gatekeep_market(self, market: dict) -> dict:
-        ...
+    async def _gatekeep_market(self, market: dict) -> dict:
+        system = (
+            "You are a gatekeeper for BIT Capital, a tech-focused investment fund."
+            "Your job is to determine if a prediction market is RELEVANT to our portfolio holdings or focus sectors. \n\n"
+            f"HOLDINGS & SECTORS: \n {self.llm.get_holdings_context()}\n\n"
+            "Return a JSON object with 'is_relevant' (bool) and 'confidence' (float 0.0 - 1.0)."
+        )
+
+        prompt = (
+            f"Market Question: {market['question']}\n"
+            f"Description: {market.get('description', '')}\n"
+            f"Tags: {market.get('tags'), []} \n"
+            f"Category: {market.get('category', '')}\n"
+        )
+
+        try:
+            return await self.llm.get_json_completion(prompt, system=system, model=self.llm.gatekeeper_model)
+        except Exception as e:
+            logger.error(f"Gatekeeper failed for market {market['market_id']} :{e}")
+            return {'is_relevant': False, "confidence": 0.0}
