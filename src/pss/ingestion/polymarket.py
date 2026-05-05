@@ -76,6 +76,7 @@ class PolymarketFetcher(BaseFetcher):
     def _paginate(self, endpoint: str, params: dict) -> list[RawMarket]:
         all_markets = []
         offset = 0
+        total_events_fetched = 0
 
         while True:
             params["offset"] = offset
@@ -94,6 +95,8 @@ class PolymarketFetcher(BaseFetcher):
             if not events:
                 break
 
+            total_events_fetched += len(events)
+
             for event in events:
                 all_markets.extend(_parse_event(event, logger))
 
@@ -103,6 +106,7 @@ class PolymarketFetcher(BaseFetcher):
             offset += settings.polymarket_page_limit
             time.sleep(0.2)
 
+        logger.info(f"Total events fetched across all pages: {total_events_fetched}")
         return all_markets
 
 
