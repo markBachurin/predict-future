@@ -112,10 +112,21 @@ class MarketClassifier:
         async with self.semaphore1:
             system = (
                 "You are a gatekeeper for BIT Capital, a tech-focused investment fund."
-                "Your job is to determine if each prediction market in the provided list is RELEVANT to our portfolio holdings or focus sectors. \n\n"
+                "Your primary role is to determine if each prediction market in the provided list is RELEVANT to our specific investment portfolio and focus areas.\n\n"
+                "A market is ONLY considered RELEVANT if it has a DIRECT and SPECIFIC connection to one or more of the exact tickers, sectors, or macro themes listed in BIT_CAPITAL_HOLDINGS. Loose macroeconomic associations or general economic trends do NOT qualify as relevant unless they directly impact a specific holding.\n\n"
+                "A market about a company not listed in our tickers is NOT relevant, even if that company operates in a related sector.\n"
+                "For example:\n"
+                "- A market predicting a US bank failure is NOT relevant because BIT Capital holds no banking stocks.\n"
+                "- A market predicting a general US court tariff ruling is NOT relevant to AUTO1, because AUTO1's exposure is specifically EU tariffs on Chinese EVs, not broad US import tariff policy.\n\n"
+                "If a market is relevant, you MUST identify the specific ticker(s), sector(s), or macro_theme(s) that make it relevant in the 'reason' field.\n"
+                "If NO specific ticker, sector, or macro_theme is directly affected, 'is_relevant' MUST be false.\n\n"
+                "\nCRITICAL FORMATTING RULES:\n"
+                "1. Your ENTIRE response MUST be a raw JSON array starting with '[' and ending with ']'.\n"
+                "2. Do NOT include markdown code fences (no ```json or ```).\n"
+                "3. Do NOT include any preamble, text, commentary, or agent commands before or after the array.\n"
+                "4. Do NOT call any functions or tools — only return JSON.\n\n"
                 f"HOLDINGS & SECTORS: \n {self.llm.get_holdings_context()}\n\n"
-                "Return a JSON array of objects. Each object must contain 'market_id' (str), 'is_relevant' (bool), 'confidence' (float 0.0 - 1.0), "
-                "and 'reason' (brief string: why this market is or isn't relevant to our holdings)."
+                "Return a JSON array of objects. Each object must contain 'market_id' (str), 'is_relevant' (bool), 'confidence' (float 0.0 - 1.0), and 'reason' (brief string explaining why this market is or isn't relevant to our holdings, referencing specific holdings where applicable)."
             )
 
             prompt_parts = []
@@ -142,11 +153,23 @@ class MarketClassifier:
         async with self.semaphore2:
             system = (
                 "You are a Senior Investment Analyst at BIT Capital. "
-                "Analyze each prediction market in the provided list and its potential impact on our portfolio. \n\n"
-                F"HOLDINGS & SECTORS: \n{self.llm.get_holdings_context()}\n\n"
-                "Analyze the sentiment (bullish/bearish) for the specific tickers involved for each market. "
-                "If the market probability is high (>0.7) for an event that helps a ticker, it's bullish."
-                "If it's low (<0.3) for a helpful event, it's bearish.\n"
+                "Your task is to analyze each prediction market and determine its precise impact on our portfolio holdings.\n\n"
+                "You MUST ONLY identify tickers from the exact list provided in BIT_CAPITAL_HOLDINGS.\n"
+                "For each relevant market, you MUST explicitly state in the 'reasoning' field:\n"
+                "1. Which specific ticker(s) from BIT_CAPITAL_HOLDINGS are affected.\n"
+                "2. Which specific sector(s) are affected.\n"
+                "3. Which specific macro_theme(s) are at play.\n"
+                "4. WHY these are affected by the market event.\n\n"
+                "Be precise about the sentiment direction:\n"
+                "- 'bullish' or 'bearish' is ONLY appropriate if there is a clear, direct causal mechanism linking the market event to the specified holding's performance.\n"
+                "- If the connection is indirect, speculative, or uncertain, use 'neutral'.\n"
+                "- Vague macroeconomic connections or general market sentiment are NOT sufficient grounds for assigning 'bullish' or 'bearish'. The reasoning MUST trace a clear causal chain from the market event to a specific holding's likely performance.\n\n"
+                "Your ENTIRE response MUST be a single valid JSON array. Do not include any explanatory text, markdown, agent commands, or any content outside of this JSON array.\n\n"
+                "CRITICAL FORMATTING RULES:\n"
+                "1. Your ENTIRE response MUST be a raw JSON array starting with '[' and ending with ']'.\n"
+                "2. Do NOT include markdown code fences (no ```json or ```).\n"
+                "3. Do NOT include any text, commentary, or agent commands before or after the array.\n"
+                "4. Do NOT call any functions or tools — only return JSON.\n\n"
                 "Return a JSON array of objects. Each object must contain:\n"
                 "- 'market_id' (str)\n"
                 "- 'tickers' (list of identified tickers from BIT Capital holdings)\n"
@@ -156,7 +179,8 @@ class MarketClassifier:
                 "- 'confidence_reason' (brief string: why you assigned this confidence level)\n"
                 "- 'foundational_details' (brief string: the core facts of the market)\n"
                 "- 'circumstances' (brief string: what specific macro/political triggers are at play)\n"
-                "- 'reasoning' (detailed string: why this matters for the tickers involved)"
+                "- 'reasoning' (detailed string: why this matters for the tickers involved, tracing the causal chain)\n\n"
+                f"HOLDINGS & SECTORS:\n{self.llm.get_holdings_context()}\n\n"
             )
 
             prompt_parts = []
