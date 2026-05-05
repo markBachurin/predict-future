@@ -195,7 +195,6 @@ class PolymarketFetcher(BaseFetcher):
             p = m_data["prob"]
 
             if p is not None:
-                # market has a binary probability. Calculate distance from 0.5.
                 distance = abs(p - 0.5)
                 if best_market_data is None or best_market_data["prob"] is None or distance < min_distance:
                     min_distance = distance
@@ -206,6 +205,38 @@ class PolymarketFetcher(BaseFetcher):
                     best_market_data = m_data
         
         return best_market_data
+
+    def _build_raw_market_object(
+        self,
+        best_market_data: dict,
+        event_data: dict,
+        category: str | None,
+        tags: list[str]
+    ) -> RawMarket:
+
+        m = best_market_data["market"]
+        return RawMarket(
+            source="polymarket",
+            external_id=f"polymarket:{m.get('conditionId', m.get('id'))}",
+            question=m.get("question", event_data.get("title", "")),
+            description=m.get("description") or event_data.get("description"),
+            probability=best_market_data["prob"],
+            volume=best_market_data["volume"],
+            category=category,
+            expiry=self._parse_expiry(event_data.get("endDate")),
+            volume24hr=float(m.get("volume24hr") or 0),
+            price_change_day=float(m.get("oneDayPriceChange")) if m.get("oneDayPriceChange") is not None else None,
+            price_change_week=float(m.get("oneWeekPriceChange")) if m.get("oneWeekPriceChange") is not None else None,
+            liquidity=best_market_data["liquidity"],
+            tags=tags,
+            market_type=best_market_data["market_type"],
+            outcomes=best_market_data["outcomes"],
+            outcome_probabilities=best_market_data["probs"],
+            resolution_source=m.get("resolution_source") or m.get("resolutionSource"),
+            ticker=event_data.get("ticker"),
+            restricted=m.get("restricted", False),
+        )
+
 
     def _parse_event(self, event: dict) -> list[RawMarket]:
         results = []
@@ -223,28 +254,13 @@ class PolymarketFetcher(BaseFetcher):
         if not best_market_data:
             return []
 
-        m = best_market_data["market"]
-        results.append(RawMarket(
-            source="polymarket",
-            external_id=f"polymarket:{m.get('conditionId', m.get('id'))}",
-            question=m.get("question", event.get("title", "")),
-            description=m.get("description") or event.get("description"),
-            probability=best_market_data["prob"],
-            volume=best_market_data["volume"],
+        raw_market = self._build_raw_market_object(
+            best_market_data=best_market_data,
+            event_data=event,
             category=category,
-            expiry=self._parse_expiry(event.get("endDate")),
-            volume24hr=float(m.get("volume24hr") or 0),
-            price_change_day=float(m.get("oneDayPriceChange")) if m.get("oneDayPriceChange") is not None else None,
-            price_change_week=float(m.get("oneWeekPriceChange")) if m.get("oneWeekPriceChange") is not None else None,
-            liquidity=best_market_data["liquidity"],
-            tags=tags,
-            market_type=best_market_data["market_type"],
-            outcomes=best_market_data["outcomes"],
-            outcome_probabilities=best_market_data["probs"],
-            resolution_source=m.get("resolution_source") or m.get("resolutionSource"),
-            ticker=event.get("ticker"),
-            restricted=m.get("restricted", False),
-        ))
+            tags=tags
+        )
+        results.append(raw_market)
 
         return results
 
