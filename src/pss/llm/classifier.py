@@ -3,6 +3,7 @@ import asyncio
 from src.pss.llm.client import LLMClient
 from src.pss.storage.postgres.client import PostgresClient
 from pss_config.config import settings
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,6 @@ class MarketClassifier:
                 relevant_markets.append(market)
 
         logger.info(f"Gatekeeper filtered {len(markets)} -> {len(relevant_markets)} relevant markets.")
-
-        if not relevant_markets:
-            # mark everything as processed even if not relevant
-            raw_ids = [m["raw_market_id"] for m in markets]
-            self.pg.mark_processed(raw_ids)
 
         # pass 2, reasoning
         reasoner_tasks = [self._reason_market(m) for m in relevant_markets]
@@ -81,13 +77,14 @@ class MarketClassifier:
             "You are a gatekeeper for BIT Capital, a tech-focused investment fund."
             "Your job is to determine if a prediction market is RELEVANT to our portfolio holdings or focus sectors. \n\n"
             f"HOLDINGS & SECTORS: \n {self.llm.get_holdings_context()}\n\n"
-            "Return a JSON object with 'is_relevant' (bool) and 'confidence' (float 0.0 - 1.0)."
+            "Return a JSON object with 'is_relevant' (bool), 'confidence' (float 0.0 - 1.0), "
+            "and 'reason' (brief string: why this market is or isn't relevant to our holdings)."
         )
 
         prompt = self._get_prompt(market)
 
         try:
-            return await self.llm.get_json_completion(prompt, system=system, model=self.llm.gatekeeper_model)
+            return await self.llm.get_json_completion(prompt, system=system)
         except Exception as e:
             logger.error(f"Gatekeeper failed for market {market['market_id']} :{e}")
             return {'is_relevant': False, "confidence": 0.0}
@@ -110,6 +107,7 @@ class MarketClassifier:
             "- 'sectors' (list of relevant sectors)\n"
             "- 'direction' (bullish/bearish/neutral)\n"
             "- 'llm_confidence' (float 0-1, how certain you are of this impact)\n"
+            "- 'confidence_reason' (brief string: why you assigned this confidence level)\n"
             "- 'foundational_details' (brief string: the core facts of the market)\n"
             "- 'circumstances' (brief string: what specific macro/political triggers are at play)\n"
             "- 'reasoning' (detailed string: why this matters for the tickers involved)"
@@ -118,7 +116,7 @@ class MarketClassifier:
         prompt = self._get_prompt(market)
 
         try:
-            return await self.llm.get_json_completion(prompt, system=system, model=self.llm.reasoner_model)
+            return await self.llm.get_json_completion(prompt, system=system)
         except Exception as e:
             logger.error(f"Reasoner failed for market {market['market_id']}: {e}")
             return {
@@ -133,8 +131,6 @@ class MarketClassifier:
 
     @staticmethod
     def _calculate_weighted_score(market: dict, analysis: dict) -> float:
-        import math
-
         llm_conf = analysis.get("llm_confidence", 0.0)
         vol = max(market.get("volume", 0.0), settings.polymarket_volume_min)
 
@@ -154,7 +150,7 @@ class MarketClassifier:
         return (
             f"Market Question: {market['question']}\n"
             f"Description: {market.get('description', '')}\n"
-            f"Tags: {market.get('tags'), []} \n"
+            f"Tags: {market.get('tags', [])} \n"
             f"Category: {market.get('category', '')}\n"
             f"Probability: {market.get('probability')}\n"
             f"Volume 24 hours: {market.get('volume24hr')}\n"

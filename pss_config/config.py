@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     # LLM
     anthropic_api_key: str
+    gatekeep_thread_limit : int = 10
+    reason_thread_limit : int = 10
 
     #p pipeline
     ingestion_interval_minutes: int

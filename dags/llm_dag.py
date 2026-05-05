@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator
 import logging
 from pss_config.config import DAG_DEFAULT_ARGS
 from src.pss.llm.classifier import MarketClassifier
-from src.pss.llm.client import LLMClient
+from src.pss.llm.client import  LLMClient
 from src.pss.storage.postgres.client import  PostgresClient
 from datetime import timedelta, datetime
 from dags.shared.ingestion_tasks import ensure_schema
@@ -12,10 +12,9 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 def classify(**context):
-    llm_client = LLMClient()
     pg_client = PostgresClient()
+    llm_client = LLMClient()
     classifier = MarketClassifier(llm_client, pg_client)
-
     return asyncio.run(classifier.classify_all())
 
 

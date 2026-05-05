@@ -121,6 +121,8 @@ class PostgresClient(Client):
                     LEFT JOIN llm_classifications lc ON m.id = lc.market_id
                     WHERE r.processed = false
                     AND lc.id IS NULL
+                    
+                    LIMIT 50
                 """)
                 return [dict(row) for row in cur.fetchall()]
 
