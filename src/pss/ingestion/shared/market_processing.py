@@ -77,6 +77,10 @@ def _process_market_data(event: dict) -> list[dict]:
         if liquidity < settings.polymarket_liquidity_min:
             continue
 
+        volume24hr = float(market.get("volume24hr") or 0)
+        if volume24hr < settings.polymarket_volume24hr_min:
+            continue
+
         market_type = market.get("market_type") or market.get("marketType")
         outcomes_raw = market.get("outcomes", [])
         outcomes_list = json.loads(outcomes_raw) if isinstance(outcomes_raw, str) else (outcomes_raw or [])
