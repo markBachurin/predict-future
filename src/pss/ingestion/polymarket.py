@@ -183,6 +183,30 @@ class PolymarketFetcher(BaseFetcher):
             })
         return processed_markets_data
 
+    def _select_primary_market(self, processed_markets_data: list[dict]) -> dict | None:
+        # selects the market with prob closest to 0.5, falling back to highest volume
+        if not processed_markets_data:
+            return None
+
+        best_market_data = None
+        min_distance = 1.1
+
+        for m_data in processed_markets_data:
+            p = m_data["prob"]
+
+            if p is not None:
+                # market has a binary probability. Calculate distance from 0.5.
+                distance = abs(p - 0.5)
+                if best_market_data is None or best_market_data["prob"] is None or distance < min_distance:
+                    min_distance = distance
+                    best_market_data = m_data
+            else:
+                # no prob: pick first seen, or highest volume if both lack prob
+                if best_market_data is None or (best_market_data["prob"] is None and m_data["volume"] > best_market_data["volume"]):
+                    best_market_data = m_data
+        
+        return best_market_data
+
     def _parse_event(self, event: dict) -> list[RawMarket]:
         results = []
         category = self._extract_category(event)
@@ -194,28 +218,7 @@ class PolymarketFetcher(BaseFetcher):
 
         parsed_markets_data = self._process_market_data(event)
 
-        if not parsed_markets_data:
-            return []
-
-        # clustered Event Deduplication, center-of-gravity, select the single market closest to 0.5 probability, if no binary probability, fall back to highest volume
-        best_market_data = None
-        min_distance = 1.1  # max distance is 0.5
-
-        for m_data in parsed_markets_data:
-            p = m_data["prob"]
-            if p is not None:
-                # market has a binary probability
-                distance = abs(p - 0.5)
-                if best_market_data is None or best_market_data["prob"] is None or distance < min_distance:
-                    min_distance = distance
-                    best_market_data = m_data
-            else:
-                # no binary probability (multi-outcome or missing price)
-                if best_market_data is None:
-                    best_market_data = m_data
-                elif best_market_data["prob"] is None and m_data["volume"] > best_market_data["volume"]:
-                    # both have no prob, pick the one with more volume
-                    best_market_data = m_data
+        best_market_data = self._select_primary_market(parsed_markets_data)
 
         if not best_market_data:
             return []
