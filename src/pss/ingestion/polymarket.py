@@ -135,16 +135,8 @@ class PolymarketFetcher(BaseFetcher):
         
         return False
 
-    def _parse_event(self, event: dict) -> list[RawMarket]:
-        results = []
-        category = self._extract_category(event)
-        tags = [t.get("label", "") for t in event.get("tags", [])]
-        title = event.get("title", "").lower()
-
-        if self._should_skip_event(category, tags, title):
-            return []
-
-        parsed_markets = []
+    def _process_market_data(self, event: dict) -> list[dict]:
+        processed_markets_data = []
         for market in event.get("markets", []):
             volume = float(event.get("volume") or market.get("volumeNum") or 0)
             if volume < settings.polymarket_volume_min:
@@ -180,7 +172,7 @@ class PolymarketFetcher(BaseFetcher):
             if prob is not None and not (0.0 <= prob <= 1.0):
                 prob = None
 
-            parsed_markets.append({
+            processed_markets_data.append({
                 "market": market,
                 "market_type": market_type,
                 "outcomes": outcomes_list,
@@ -189,15 +181,27 @@ class PolymarketFetcher(BaseFetcher):
                 "volume": volume,
                 "liquidity": liquidity
             })
+        return processed_markets_data
 
-        if not parsed_markets:
+    def _parse_event(self, event: dict) -> list[RawMarket]:
+        results = []
+        category = self._extract_category(event)
+        tags = [t.get("label", "") for t in event.get("tags", [])]
+        title = event.get("title", "").lower()
+
+        if self._should_skip_event(category, tags, title):
+            return []
+
+        parsed_markets_data = self._process_market_data(event)
+
+        if not parsed_markets_data:
             return []
 
         # clustered Event Deduplication, center-of-gravity, select the single market closest to 0.5 probability, if no binary probability, fall back to highest volume
         best_market_data = None
         min_distance = 1.1  # max distance is 0.5
 
-        for m_data in parsed_markets:
+        for m_data in parsed_markets_data:
             p = m_data["prob"]
             if p is not None:
                 # market has a binary probability
