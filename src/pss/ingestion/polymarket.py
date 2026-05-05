@@ -121,22 +121,27 @@ class PolymarketFetcher(BaseFetcher):
 
         return all_markets
 
+    def _should_skip_event(self, category: str | None, tags: list[str], title: str) -> bool:
+        category_lower = category.lower() if category else ""
+        tags_lower = [t.lower() for t in tags]
+
+        if category_lower in EXCLUDED_CATEGORIES or any(t in EXCLUDED_CATEGORIES for t in tags_lower):
+            logger.debug(f"Skipping irrelevant category/tag: {category} | {tags}")
+            return True
+
+        if any(kw in title for kw in NOISE_KEYWORDS):
+            logger.debug(f"Skipping event due to noise keyword: {title}")
+            return True
+        
+        return False
+
     def _parse_event(self, event: dict) -> list[RawMarket]:
         results = []
         category = self._extract_category(event)
         tags = [t.get("label", "") for t in event.get("tags", [])]
         title = event.get("title", "").lower()
 
-        # ingestion-stage category & tag filter
-        category_lower = category.lower() if category else ""
-        tags_lower = [t.lower() for t in tags]
-
-        if category_lower in EXCLUDED_CATEGORIES or any(t in EXCLUDED_CATEGORIES for t in tags_lower):
-            logger.debug(f"Skipping irrelevant category/tag: {category} | {tags}")
-            return []
-
-        if any(kw in title for kw in NOISE_KEYWORDS):
-            logger.debug(f"Skipping event due to noise keyword: {title}")
+        if self._should_skip_event(category, tags, title):
             return []
 
         parsed_markets = []
