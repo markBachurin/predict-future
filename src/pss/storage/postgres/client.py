@@ -126,17 +126,15 @@ class PostgresClient(Client):
                 """)
                 return [dict(row) for row in cur.fetchall()]
 
-
     def mark_processed(self, raw_market_ids: list[str]) -> None:
         if not raw_market_ids:
             return
 
         with self._get_conn() as conn:
             with conn.cursor() as cur:
-                execute_values(
-                    cur,
-                    "UPDATE raw_markets SET processed = true WHERE id = %s",
-                    [(id,) for id in raw_market_ids]
+                cur.execute(
+                    "UPDATE raw_markets SET processed = true WHERE id IN %s",
+                    (tuple(raw_market_ids),)
                 )
 
     def insert_classifications(self, results: list[dict]) -> None:
@@ -177,6 +175,8 @@ class PostgresClient(Client):
                 )
 
     # private methods:
+    def get_connection(self):
+        return self._get_conn()
 
     @staticmethod
     def _get_connection():
