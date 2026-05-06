@@ -43,6 +43,9 @@ class MarketClassifier:
             else:
                 logger.error(f"Unexpected question filter batch result format: {batch_results}")
 
+        # Insert results of the first pass into the database
+        self.pg.insert_pass_results(question_filter_results_map, pass_number=1)
+
         relevant_markets = []
         for market in markets:
             market_id = market["market_id"]
