@@ -72,16 +72,30 @@ CREATE TABLE IF NOT EXISTS llm_classifications (
     circumstances       TEXT,
     reasoning           TEXT,
     llm_confidence      NUMERIC(5,4),
+    confidence_reason   TEXT, 
     weighted_score      NUMERIC(5,4),
     classified_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (market_id)
 );
 CREATE INDEX IF NOT EXISTS idx_llm_classifications_market_id ON llm_classifications (market_id);
 CREATE INDEX IF NOT EXISTS idx_llm_classifications_relevant ON llm_classifications (is_relevant);
+
+CREATE TABLE IF NOT EXISTS llm_pass_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    market_id UUID NOT NULL REFERENCES markets(id),
+    pass_number INT NOT NULL,
+    is_relevant BOOLEAN,
+    confidence FLOAT,
+    confidence_reason   TEXT,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_llm_pass_results_market_id ON llm_pass_results (market_id);
+CREATE INDEX IF NOT EXISTS idx_llm_pass_results_pass_number ON llm_pass_results (pass_number);
 """
 
 def db_init() -> None:
-    logger.info("Initializing database scheama ...")
+    logger.info("Initializing database schema ...")
 
     conn = psycopg2.connect(
         host=settings.db_host,
