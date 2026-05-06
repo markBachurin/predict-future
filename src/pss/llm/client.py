@@ -18,7 +18,7 @@ class LLMClient:
     ) -> dict[str, Any]:
         full_system = (
             f"{system}\n\n"
-            "CRITICAL: Your response must be valid JSON only — either a single object or an array. No preamble, no markdown fences, no explanation."
+            "CRITICAL: Your response must be valid JSON only. No preamble, no markdown fences, no explanation."
         )
 
         try:

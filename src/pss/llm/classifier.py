@@ -50,11 +50,15 @@ class MarketClassifier:
 
         logger.info(f"Gatekeeper filtered {len(markets)} -> {len(relevant_markets)} relevant markets.")
 
+
         # Pass 2, Reasoning
+        # Collect all raw_market_ids upfront to ensure they are marked processed later.
+        all_raw_market_ids = [m["raw_market_id"] for m in markets]
+
         if not relevant_markets:
             logger.info("No relevant markets for reasoning pass.")
-            raw_ids = [m["raw_market_id"] for m in markets]
-            self.pg.mark_processed(raw_ids)
+            # All markets are already collected in all_raw_market_ids
+            self.pg.mark_processed(all_raw_market_ids)
             return
 
         relevant_market_batches = list(self._chunk_markets(relevant_markets, self.batch_size))
@@ -73,41 +77,47 @@ class MarketClassifier:
                 logger.error(f"Unexpected reasoner batch result format: {batch_results}")
 
         classifications = []
-        for market in relevant_markets:
+        for market in relevant_markets: # Iterate only through markets that passed gatekeeping
             market_id = market["market_id"]
-            # Fallback uses existing error dict structure
-            analysis = reasoner_results_map.get(market_id, {
-                "tickers": [], "sectors": [], "direction": "neutral",
-                "llm_confidence": 0.0, "foundational_details": "Analysis failed (missing from batch result).",
-                "circumstances": "", "reasoning": "Market ID not found in LLM response batch."
-            })
+            raw_market_id = market["raw_market_id"]
 
-            score = self._calculate_weighted_score(market, analysis)
+            if market_id in reasoner_results_map:
+                # Analysis succeeded
+                analysis = reasoner_results_map[market_id]
+                score = self._calculate_weighted_score(market, analysis)
 
-            classification = {
-                "market_id": market["market_id"],
-                "is_relevant": True,
-                "tickers": analysis.get("tickers", []),
-                "sectors": analysis.get("sectors", []),
-                "direction": analysis.get("direction", "neutral"),
-                "llm_confidence": analysis.get("llm_confidence", 0.0),
-                "foundational_details": analysis.get("foundational_details", ""),
-                "circumstances": analysis.get("circumstances", ""),
-                "reasoning": analysis.get("reasoning", ""),
-                "weighted_score": score
-            }
-            classifications.append(classification)
+                classification = {
+                    "market_id": market["market_id"],
+                    "is_relevant": True, # This is True because it passed gatekeeping
+                    "tickers": analysis.get("tickers", []),
+                    "sectors": analysis.get("sectors", []),
+                    "direction": analysis.get("direction", "neutral"),
+                    "llm_confidence": analysis.get("llm_confidence", 0.0),
+                    "confidence_reason": analysis.get("confidence_reason", ""), # Added this line
+                    "foundational_details": analysis.get("foundational_details", ""),
+                    "circumstances": analysis.get("circumstances", ""),
+                    "reasoning": analysis.get("reasoning", ""),
+                    "weighted_score": score
+                }
+                classifications.append(classification)
+            else:
+                # Analysis failed (fallback used)
+                # Log warning for individual market failure
+                logger.warning(f"Analysis failed for market {market_id} (raw_market_id: {raw_market_id}). Using fallback values.")
+                # No classification data will be inserted for this market.
+                # It is already accounted for in all_raw_market_ids, so it will be marked processed.
 
-        if classifications:
+        if classifications: # Only insert if there are successful classifications
             self.pg.insert_classifications(classifications)
             logger.info(f"Inserted {len(classifications)} classifications into database.")
 
-        raw_ids = [m["raw_market_id"] for m in markets]
-        self.pg.mark_processed(raw_ids)
+        # Mark all markets that were initially fetched for classification as processed.
+        if all_raw_market_ids:
+            self.pg.mark_processed(all_raw_market_ids)
+            logger.info(f"Marked {len(all_raw_market_ids)} raw markets as processed.")
 
 
     # private batching methods
-
     async def _gatekeep_batch(self, batch: list[dict]) -> list[dict]:
         async with self.semaphore1:
             system = (
@@ -116,7 +126,8 @@ class MarketClassifier:
                 "A market is RELEVANT only if it meets ONE of these criteria:\n"
                 "1. It directly names a ticker from BIT_CAPITAL_HOLDINGS (e.g. NVDA, BTC, TSMC).\n"
                 "2. It directly names a sector from BIT_CAPITAL_HOLDINGS (e.g. Semiconductors, Crypto Mining).\n"
-                "3. It directly names a macro theme from BIT_CAPITAL_HOLDINGS (e.g. Fed Rate Cuts, Semiconductor Export Controls).\n\n"
+                "3. It directly names a macro theme from BIT_CAPITAL_HOLDINGS (e.g. Fed Rate Cuts, Semiconductor Export Controls).\n"
+                "   NOTE: Macro theme matches must be EXACT. 'EU Tariffs on Chinese EVs' requires EU tariffs AND Chinese EVs specifically — US tariffs, general trade policy, or non-EV goods do NOT qualify.\n\n"
                 "A market is NOT relevant if:\n"
                 "- It concerns a company not in our tickers, even if that company operates in a related sector.\n"
                 "- It concerns general US/global macroeconomics with no direct link to our holdings.\n"
@@ -126,6 +137,7 @@ class MarketClassifier:
                 "- 'Will xAI release Grok 5?' - xAI is not in our tickers.\n"
                 "- 'Will the Fed cut rates?' - too broad, no direct holding link.\n"
                 "- 'Will Tesla hit $500?' - Tesla is not in our tickers.\n\n"
+                "- 'Will the US impose tariffs on Chinese goods?' - this does NOT match the macro theme 'EU Tariffs on Chinese EVs'. That theme requires BOTH EU (not US) AND Chinese EVs (not general goods) to be specifically involved.\n\n"
                 "Examples of RELEVANT:\n"
                 "- 'Will NVDA beat earnings?' - directly names NVDA.\n"
                 "- 'Will US impose new semiconductor export controls on China?' - directly names a macro theme.\n"
