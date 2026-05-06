@@ -1,8 +1,6 @@
 import logging
 import asyncio
 
-from sqlalchemy.util import itertools_filter
-
 from src.pss.llm.client import LLMClient
 from src.pss.storage.postgres.client import PostgresClient
 from pss_config.config import settings

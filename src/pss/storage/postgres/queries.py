@@ -44,6 +44,8 @@ def _upsert_markets(raw_ids: list[str], markets: list[ValidatedMarket], is_valid
                     ticker, restricted)
                     VALUES %s
                     ON CONFLICT (source, external_id) DO UPDATE SET
+                        raw_market_id = EXCLUDED.raw_market_id,
+                        question = EXCLUDED.question,
                         probability = EXCLUDED.probability,
                         volume = EXCLUDED.volume,
                         volume24hr = EXCLUDED.volume24hr,
@@ -53,6 +55,7 @@ def _upsert_markets(raw_ids: list[str], markets: list[ValidatedMarket], is_valid
                         tags = EXCLUDED.tags,
                         description = EXCLUDED.description,
                         category = EXCLUDED.category,
+                        is_valid = EXCLUDED.is_valid,
                         market_type = EXCLUDED.market_type,
                         outcomes = EXCLUDED.outcomes, 
                         outcome_probabilities = EXCLUDED.outcome_probabilities, 
@@ -145,7 +148,7 @@ def _insert_classifications(results: list[dict], connection) -> None:
                     INSERT INTO llm_classifications (
                         market_id, is_relevant, tickers, sectors, direction,
                         foundational_details, circumstances, reasoning, 
-                        llm_confidence, weighted_score
+                        llm_confidence, confidence_reason, weighted_score
                     )
                     VALUES %s
                     ON CONFLICT (market_id) DO UPDATE SET
@@ -157,6 +160,7 @@ def _insert_classifications(results: list[dict], connection) -> None:
                         circumstances = EXCLUDED.circumstances,
                         reasoning = EXCLUDED.reasoning,
                         llm_confidence = EXCLUDED.llm_confidence,
+                        confidence_reason = EXCLUDED.confidence_reason,
                         weighted_score = EXCLUDED.weighted_score,
                         classified_at = now()
                 """,
@@ -164,7 +168,7 @@ def _insert_classifications(results: list[dict], connection) -> None:
                     (
                         r['market_id'], r['is_relevant'], r['tickers'], r['sectors'], r['direction'],
                         r.get('foundational_details'), r.get('circumstances'), r['reasoning'],
-                        r['llm_confidence'], r['weighted_score']
+                        r['llm_confidence'], r.get('confidence_reason'), r['weighted_score']
                     )
                     for r in results
                 ]
@@ -191,7 +195,7 @@ def _insert_pass_results(results_map: dict, pass_number: int, connection) -> Non
             execute_values(
                 cur,
                 """
-                    INSER INTO llm_pass_results 
+                    INSERT INTO llm_pass_results 
                         (market_id, pass_number, is_relevant, confidence, confidence_reason, reason)
                     VALUES %s
                 """,
