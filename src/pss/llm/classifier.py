@@ -61,16 +61,30 @@ class MarketClassifier:
             self.pg.mark_processed(all_raw_market_ids)
             return
 
-        for id in question_filter_results_map:
-            print(id, " ", question_filter_results_map[id])
 
         # Pass 2 - Description reasoning
-        # TODO: no batching, one market at a time
-        # send question + description + liquidity + probability + price_change
-        # build classifications list
+        description_pass_tasks = []
+        for market in relevant_markets:
+            description_pass_tasks.append(self._description_pass(market))
+        
+        description_pass_raw_results = await asyncio.gather(*description_pass_tasks)
 
-        # Insert and mark processed
-        # TODO: insert classifications, mark all_raw_market_ids as processed
+        description_results_map = {}
+        successful_analyses_count = 0
+        for i, res in enumerate(description_pass_raw_results):
+            market_id = relevant_markets[i]["market_id"]
+            if isinstance(res, dict) and "error" not in res:
+                description_results_map[market_id] = res
+                successful_analyses_count += 1
+            else:
+                logger.warning(f"Description pass failed for market {market_id}: {res}")
+
+        logger.info(f"Description pass: {len(relevant_markets)} relevant markets -> {successful_analyses_count} successful analyses.")
+
+        # Insert results of the second pass into the database
+        if description_results_map:
+            self.pg.insert_pass_results(description_results_map, pass_number=2)
+            logger.info(f"Inserted {len(description_results_map)} Pass 2 results.")
 
     # private
 
@@ -128,11 +142,48 @@ class MarketClassifier:
 
     async def _description_pass(self, market: dict) -> dict:
         async with self.semaphore2:
-            # TODO: system prompt focused on deep analysis
-            # prompt contains question + description + liquidity + probability + price_change
-            # no batching - one market at a time
-            # returns single JSON object with full classification fields
-            pass
+            system_prompt = (
+                "You are an expert financial analyst for BIT Capital, specializing in prediction market analysis. "
+                "The market provided has already been filtered as relevant to BIT Capital's interests. "
+                "Your primary task is to deeply analyze this single market (question, description, probability, liquidity, price changes) "
+                "and determine its connection to BIT Capital's holdings, assess its signal strength and direction, and evaluate its urgency. "
+                "You must map the market event to specific tickers and sectors from the provided BIT_CAPITAL_HOLDINGS. "
+                "Commit to a clear direction (bullish/bearish/neutral) and do NOT default to neutral if a direction can be inferred. "
+                "Assess urgency: high probability (>0.7) combined with rising price indicates a strong signal; "
+                "low probability (<0.3) with falling price suggests a weak or contrarian signal. "
+                "Price changes (24hr and weekly) are crucial indicators of market momentum and urgency.\n\n"
+                "CRITICAL FORMATTING RULES:\n"
+                "1. Your ENTIRE response MUST be a raw JSON object starting with '{' and ending with '}'.\n"
+                "2. Do NOT include markdown code fences (no ```json or ```).\n"
+                "3. Do NOT include any text or commentary outside the object.\n"
+                "4. Do NOT call any tools - only return JSON.\n\n"
+                f"BIT_CAPITAL_HOLDINGS:\n{self.llm.get_holdings_context()}\n\n"
+                "Return a JSON object containing these fields:\n"
+                "- 'market_id' (str): The unique identifier of the market. \n"
+                "- 'tickers' (list[str]): At least one ticker from BIT_CAPITAL_HOLDINGS that is directly impacted. \n"
+                "- 'sectors' (list[str]): At least one sector from BIT_CAPITAL_HOLDINGS that is directly impacted. \n"
+                "- 'direction' (str): 'bullish', 'bearish', or 'neutral' (commit to one). \n"
+                "- 'llm_confidence' (float): Your confidence in the analysis, from 0.0 to 1.0. \n"
+                "- 'confidence_reason' (str): A single sentence explaining the chosen confidence level. \n"
+                "- 'foundational_details' (str): A single sentence summarizing the core facts of the market. \n"
+                "- 'circumstances' (str): A single sentence describing the macro or political triggers at play. \n"
+                "- 'reasoning' (str): 2-3 sentences detailing the causal chain from the market event to the identified tickers/sectors and their expected impact. \n"
+            )
+
+            prompt = self._get_description_prompt(market)
+
+            try:
+                response = await self.llm.get_json_completion(prompt, system=system_prompt)
+                if isinstance(response, dict):
+                    if "market_id" not in response:
+                        response["market_id"] = market["market_id"]
+                    return response
+                else:
+                    logger.error(f"Description pass for market {market.get('market_id')} expected dict, got {type(response)}: {response}")
+                    return {"market_id": market["market_id"], "error": "Unexpected LLM response format"}
+            except Exception as e:
+                logger.error(f"Description pass failed for market {market.get('market_id')}: {e}")
+                return {"market_id": market["market_id"], "error": str(e)}
 
     @staticmethod
     def _chunk_markets(markets: list[dict], batch_size: int):
