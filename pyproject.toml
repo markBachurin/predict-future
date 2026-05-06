@@ -14,6 +14,7 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "boto3>=1.34",
     "anthropic>=0.25",
+    "google-generativeai>=0.8",
 ]
 
 [tool.setuptools.packages.find]
