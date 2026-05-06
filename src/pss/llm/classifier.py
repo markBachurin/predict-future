@@ -101,6 +101,7 @@ class MarketClassifier:
                 "- 'is_relevant' (bool)\n"
                 "- 'confidence' (float 0.0 - 1.0)\n"
                 "- 'reason' (one sentence: why this market is relevant or not)\n"
+                "- 'confidence_reason' (one sentence: why this confidence score was chosen)\n"
             )
 
             prompt_parts = []
@@ -112,6 +113,10 @@ class MarketClassifier:
             try:
                 response = await self.llm.get_json_completion(prompt, system=system_prompt)
                 if isinstance(response, list):
+                    # Ensure confidence_reason is captured if present
+                    for res in response:
+                        if 'confidence_reason' not in res:
+                            res['confidence_reason'] = None
                     return response
                 else:
                     logger.error(f"Question batch expected list, got {type(response)}: {response}")
