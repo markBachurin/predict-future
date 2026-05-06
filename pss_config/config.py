@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     aws_region_name: str
 
     # LLM
-    gemini_api_key: str = ""
+    gemini_api_key: str
     gatekeep_thread_limit : int = 10
     reason_thread_limit : int = 10
 
