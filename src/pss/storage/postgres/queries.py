@@ -134,38 +134,68 @@ def _mark_processed(raw_market_ids: list[str], connection) -> None:
 
 
 def _insert_classifications(results: list[dict], connection) -> None:
-        if not results:
-            return
+    if not results:
+        return
 
-        with connection as conn:
-            with conn.cursor() as cur:
-                execute_values(
-                    cur,
-                    """
-                        INSERT INTO llm_classifications (
-                            market_id, is_relevant, tickers, sectors, direction,
-                            foundational_details, circumstances, reasoning, 
-                            llm_confidence, weighted_score
-                        )
-                        VALUES %s
-                        ON CONFLICT (market_id) DO UPDATE SET
-                            is_relevant = EXCLUDED.is_relevant,
-                            tickers = EXCLUDED.tickers,
-                            sectors = EXCLUDED.sectors,
-                            direction = EXCLUDED.direction,
-                            foundational_details = EXCLUDED.foundational_details,
-                            circumstances = EXCLUDED.circumstances,
-                            reasoning = EXCLUDED.reasoning,
-                            llm_confidence = EXCLUDED.llm_confidence,
-                            weighted_score = EXCLUDED.weighted_score,
-                            classified_at = now()
-                    """,
-                    [
-                        (
-                            r['market_id'], r['is_relevant'], r['tickers'], r['sectors'], r['direction'],
-                            r.get('foundational_details'), r.get('circumstances'), r['reasoning'],
-                            r['llm_confidence'], r['weighted_score']
-                        )
-                        for r in results
-                    ]
-                )
+    with connection as conn:
+        with conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                    INSERT INTO llm_classifications (
+                        market_id, is_relevant, tickers, sectors, direction,
+                        foundational_details, circumstances, reasoning, 
+                        llm_confidence, weighted_score
+                    )
+                    VALUES %s
+                    ON CONFLICT (market_id) DO UPDATE SET
+                        is_relevant = EXCLUDED.is_relevant,
+                        tickers = EXCLUDED.tickers,
+                        sectors = EXCLUDED.sectors,
+                        direction = EXCLUDED.direction,
+                        foundational_details = EXCLUDED.foundational_details,
+                        circumstances = EXCLUDED.circumstances,
+                        reasoning = EXCLUDED.reasoning,
+                        llm_confidence = EXCLUDED.llm_confidence,
+                        weighted_score = EXCLUDED.weighted_score,
+                        classified_at = now()
+                """,
+                [
+                    (
+                        r['market_id'], r['is_relevant'], r['tickers'], r['sectors'], r['direction'],
+                        r.get('foundational_details'), r.get('circumstances'), r['reasoning'],
+                        r['llm_confidence'], r['weighted_score']
+                    )
+                    for r in results
+                ]
+            )
+
+def _insert_pass_results(results_map: dict, pass_number: int, connection) -> None:
+    if not results_map:
+        return None
+
+    rows = [
+        (
+            market_id,
+            pass_number,
+            result.get("is_relevant"),
+            result.get("confidence"),
+            result.get("confidence_reason"),
+            result.get("reason"),
+        )
+        for market_id, result in results_map.items()
+    ]
+
+    with connection as conn:
+        with conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                    INSER INTO llm_pass_results 
+                        (market_id, pass_number, is_relevant, confidence, confidence_reason, reason)
+                    VALUES %s
+                """,
+                rows
+            )
+
+

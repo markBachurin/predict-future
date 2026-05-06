@@ -6,7 +6,7 @@ from src.pss.datatypes.validated_market import ValidatedMarket
 from src.pss.storage.shared.client import Client
 from typing import Union
 from src.pss.storage.postgres.queries import _upload_markets, _upsert_markets, _insert_snapshots, _get_markets_for_classification, \
-    _mark_processed, _insert_classifications
+    _mark_processed, _insert_classifications, _insert_pass_results
 
 Market = Union[RawMarket, ValidatedMarket]
 
@@ -31,6 +31,8 @@ class PostgresClient(Client):
     def insert_classifications(self, results: list[dict]) -> None:
         return _insert_classifications(results, self._get_conn())
 
+    def insert_pass_results(self, results_map: dict, pass_number: int) -> None:
+        return _insert_pass_results(results_map, pass_number, self._get_conn())
 
     # private methods:
     @staticmethod
