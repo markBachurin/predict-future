@@ -1,8 +1,10 @@
+# gemini_client.py
 import asyncio
 import json
 import logging
 from typing import Any
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from pss_config.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,14 +16,9 @@ class GeminiAPIClient:
         model: str = "gemini-2.5-flash-lite",
         temperature: float = 0.0,
     ):
-        genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel(
-            model_name=model,
-            generation_config=genai.GenerationConfig(
-                temperature=temperature,
-                response_mime_type="application/json",
-            )
-        )
+        self.model = model
+        self.temperature = temperature
+        self.client = genai.Client(api_key=settings.gemini_api_key)
 
     async def __aenter__(self):
         return self
@@ -43,9 +40,15 @@ class GeminiAPIClient:
         for attempt in range(1, max_retries + 1):
             try:
                 response = await asyncio.to_thread(
-                    self.model.generate_content,
-                    full_prompt,
+                    self.client.models.generate_content,
+                    model=self.model,
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=self.temperature,
+                        response_mime_type="application/json",
+                    ),
                 )
+
                 raw = response.text.strip()
                 logger.info(f"[gemini] Response (attempt {attempt}): {raw[:500]}")
 
