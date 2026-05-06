@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS llm_classifications (
     foundational_details TEXT,
     circumstances       TEXT,
     reasoning           TEXT,
+    question_filter_confidence NUMERIC(5,4),
     llm_confidence      NUMERIC(5,4),
     confidence_reason   TEXT, 
     weighted_score      NUMERIC(5,4),
