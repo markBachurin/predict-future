@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     # LLM
     gemini_api_key: str
+    llm_model : str = "gemini-2.5-flash"
+    llm_temperature : float = 0.0
     gatekeep_thread_limit : int = 10
     reason_thread_limit : int = 10
 

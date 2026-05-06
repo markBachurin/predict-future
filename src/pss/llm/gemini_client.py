@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 class GeminiAPIClient:
     def __init__(
         self,
-        model: str = "gemini-2.5-flash-lite",
-        temperature: float = 0.0,
+        model: str = settings.llm_model,
+        temperature: float = settings.llm_temperature,
     ):
         self.model = model
         self.temperature = temperature
