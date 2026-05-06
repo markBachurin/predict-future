@@ -2,8 +2,10 @@ from psycopg2.extras import execute_values,  RealDictCursor
 from src.pss.datatypes.raw_market import RawMarket
 from src.pss.datatypes.validated_market import ValidatedMarket
 from typing import Union
+import logging
 
 Market = Union[RawMarket, ValidatedMarket]
+logger = logging.getLogger(__name__)
 
 def _upload_markets(markets: list[Market], connection) -> list[str]:
     if not markets:
@@ -179,17 +181,32 @@ def _insert_pass_results(results_map: dict, pass_number: int, connection) -> Non
     if not results_map:
         return None
 
-    rows = [
-        (
-            market_id,
-            pass_number,
-            result.get("is_relevant"),
-            result.get("confidence"),
-            result.get("confidence_reason"),
-            result.get("reason"),
-        )
-        for market_id, result in results_map.items()
-    ]
+    rows = []
+    for market_id, result in results_map.items():
+        if pass_number == 1:
+            rows.append(
+                (
+                    market_id,
+                    pass_number,
+                    result.get("is_relevant"),
+                    result.get("confidence"),
+                    result.get("confidence_reason"),
+                    result.get("reason"),
+                )
+            )
+        elif pass_number == 2:
+            rows.append(
+                (
+                    market_id,
+                    pass_number,
+                    True,
+                    result.get("llm_confidence"),
+                    result.get("confidence_reason"),
+                    result.get("reasoning"),
+                )
+            )
+        else:
+            logger.error(f"Unknown pass_number: {pass_number}")
 
     with connection as conn:
         with conn.cursor() as cur:
