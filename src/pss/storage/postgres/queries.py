@@ -224,11 +224,11 @@ def _drop_db(connection) -> None:
     with connection as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                DROP TABLE llm_classifications;
-                DROP TABLE llm_pass_results;
-                DROP TABLE market_snapshots;
-                DROP TABLE markets;
-                DROP TABLE raw_markets;
+                DROP TABLE IF EXISTS llm_classifications;
+                DROP TABLE IF EXISTS llm_pass_results;
+                DROP TABLE IF EXISTS market_snapshots;
+                DROP TABLE IF EXISTS markets;
+                DROP TABLE IF EXISTS raw_markets;
             """)
 
 
