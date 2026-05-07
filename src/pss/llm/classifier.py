@@ -1,6 +1,5 @@
 import logging
 import asyncio
-
 from src.pss.llm.client import LLMClient
 from src.pss.storage.postgres.client import PostgresClient
 from pss_config.config import settings
@@ -14,8 +13,8 @@ class MarketClassifier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient, batch_size: int = 10):
         self.llm = llm_client
         self.pg = pg_client
-        self.semaphore1 = max(1, asyncio.Semaphore(settings.question_thread_limit))
-        self.semaphore2 = max(1,asyncio.Semaphore(settings.description_thread_limit))
+        self.semaphore1 = asyncio.Semaphore(max(1, settings.question_thread_limit))
+        self.semaphore2 = asyncio.Semaphore(max(1, settings.description_thread_limit))
         self.batch_size = batch_size
 
     async def classify_all(self):
@@ -32,27 +31,12 @@ class MarketClassifier:
         question_filter_batch_tasks = [self._question_batch(batch) for batch in market_batches]
         question_filter_raw_results = await asyncio.gather(*question_filter_batch_tasks)
 
-        question_filter_results_map = {}
-        for batch_results in question_filter_raw_results:
-            if isinstance(batch_results, list):
-                for res in batch_results:
-                    if "market_id" in res:
-                        question_filter_results_map[res["market_id"]] = res
-                    else:
-                        logger.warning(f"Question filter batch result missing 'market_id': {res}")
-            else:
-                logger.error(f"Unexpected question filter batch result format: {batch_results}")
+        question_filter_results_map = self._get_question_filter_results_map(question_filter_raw_results)
 
         # Insert results of the first pass into the database
         self.pg.insert_pass_results(question_filter_results_map, pass_number=1)
 
-        relevant_markets = []
-        for market in markets:
-            market_id = market["market_id"]
-            result = question_filter_results_map.get(market_id, {'is_relevant': False, "confidence": 0.0})
-            if result.get("is_relevant") and result.get("confidence", 0) > 0.7:
-                market["question_filter_confidence"] = result.get("confidence")
-                relevant_markets.append(market)
+        relevant_markets = self._get_relevant_markets(markets, question_filter_results_map)
 
         logger.info(f"Question filter: {len(markets)} -> {len(relevant_markets)} relevant markets (confidence > 0.7).")
 
@@ -81,35 +65,25 @@ class MarketClassifier:
 
         logger.info(f"Description pass: {len(relevant_markets)} relevant markets -> {successful_analyses_count} successful analyses.")
 
-        # Insert results of the second pass into the database
-        if description_results_map:
-            self.pg.insert_pass_results(description_results_map, pass_number=2)
-            logger.info(f"Inserted {len(description_results_map)} Pass 2 results.")
+        classifications = self._make_classifications(relevant_markets, description_results_map)
 
-        classifications = []
-        for market in relevant_markets:
-            market_id = market["market_id"]
-            analysis_result = description_results_map.get(market_id)
-
-            if analysis_result:
-                try:
-                    classification_dict = self._get_classifications_dict(market_id, analysis_result, market)
-                    classification_dict["weighted_score"] = self._calculate_weighted_score(market, classification_dict)
-                    classifications.append(classification_dict)
-                except Exception as e:
-                    logger.error(f"Error creating classification for market {market_id} from analysis result: {e}. Result: {analysis_result}")
+        try:
+            if description_results_map:
+                self.pg.insert_pass_results(description_results_map, pass_number=2)
+                logger.info(f"Inserted {len(description_results_map)} Pass 2 results.")
             else:
-                logger.warning(f"No successful analysis result found for market {market_id} in Pass 2. Skipping classification.")
+                logger.info("No descriptions to insert after Pass 2.")
+            if classifications:
+                self.pg.insert_classifications(classifications)
+                logger.info(f"Inserted {len(classifications)} final classifications.")
+            else:
+                logger.info("No classifications to insert after Pass 2.")
+        except Exception as e:
+            logger.error(f"Failed to persist classifications: {e}")
+            raise
 
-        if classifications:
-            self.pg.insert_classifications(classifications)
-            logger.info(f"Inserted {len(classifications)} final classifications.")
-        else:
-            logger.info("No classifications to insert after Pass 2.")
-
-        # Mark all initial markets as processed
         self.pg.mark_processed(all_raw_market_ids)
-        logger.info(f"Marked {len(all_raw_market_ids)} raw markets as processed.")
+        logger.info(f"Marked {len(all_raw_market_ids)} markets as processed.")
 
     # private
 
@@ -217,7 +191,7 @@ class MarketClassifier:
 
     @staticmethod
     def _calculate_weighted_score(market: dict, analysis: dict) -> float:
-        llm_conf = Decimal(str(analysis.get("llm_confidence", 0.0)))
+        llm_conf = Decimal(str(analysis.get("llm_confidence") or 0.0))
         vol = max(market.get("volume", 0.0), settings.polymarket_volume_min)
 
         log_vol = math.log(float(vol))
@@ -266,3 +240,46 @@ class MarketClassifier:
             "reasoning": analysis_result.get("reasoning"),
             "question_filter_confidence": market.get("question_filter_confidence")
         }
+
+    @staticmethod
+    def _get_question_filter_results_map(question_filter_raw_results):
+        question_filter_results_map = {}
+        for batch_results in question_filter_raw_results:
+            if isinstance(batch_results, list):
+                for res in batch_results:
+                    if "market_id" in res:
+                        question_filter_results_map[res["market_id"]] = res
+                    else:
+                        logger.warning(f"Question filter batch result missing 'market_id': {res}")
+            else:
+                logger.error(f"Unexpected question filter batch result format: {batch_results}")
+        return question_filter_results_map
+
+    @staticmethod
+    def _get_relevant_markets(markets: list[dict], question_filter_results_map: dict) -> list[dict]:
+        relevant_markets = []
+        for market in markets:
+            market_id = market["market_id"]
+            result = question_filter_results_map.get(market_id, {'is_relevant': False, "confidence": 0.0})
+            if result.get("is_relevant") and result.get("confidence", 0) > 0.7:
+                market["question_filter_confidence"] = result.get("confidence")
+                relevant_markets.append(market)
+        return relevant_markets
+
+    def _make_classifications(self, relevant_markets: list[dict], description_results_map: dict) -> list[dict]:
+        classifications = []
+        for market in relevant_markets:
+            market_id = market["market_id"]
+            analysis_result = description_results_map.get(market_id)
+
+            if analysis_result:
+                try:
+                    classification_dict = self._get_classifications_dict(market_id, analysis_result, market)
+                    classification_dict["weighted_score"] = self._calculate_weighted_score(market, classification_dict)
+                    classifications.append(classification_dict)
+                except Exception as e:
+                    logger.error(f"Error creating classification for market {market_id} from analysis result: {e}. Result: {analysis_result}")
+            else:
+                logger.warning(f"No successful analysis result found for market {market_id} in Pass 2. Skipping classification.")
+
+        return classifications
