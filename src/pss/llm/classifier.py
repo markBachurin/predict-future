@@ -1,10 +1,5 @@
 import logging
 import asyncio
-from tabnanny import check
-
-from pandas.core.dtypes.inference import is_float
-from pyparsing import lineStart
-
 from src.pss.llm.client import LLMClient
 from src.pss.llm.prompts import QUESTION_SYSTEM_PROMPT, DESCRIPTION_SYSTEM_PROMPT
 from src.pss.storage.postgres.client import PostgresClient
@@ -16,12 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 class MarketClassifier:
-    def __init__(self, llm_client: LLMClient, pg_client: PostgresClient, batch_size: int = 10):
+    def __init__(self, llm_client: LLMClient, pg_client: PostgresClient, question_batch_size: int = 10, description_batch_size: int =5):
         self.llm = llm_client
         self.pg = pg_client
         self.semaphore1 = asyncio.Semaphore(max(1, settings.question_thread_limit))
         self.semaphore2 = asyncio.Semaphore(max(1, settings.description_thread_limit))
-        self.batch_size = batch_size
+        self.question_batch_size = question_batch_size
+        self._description_batch_size = description_batch_size
 
     async def classify_all(self):
         markets = self.pg.get_markets_for_classification()
@@ -34,7 +30,7 @@ class MarketClassifier:
         all_market_ids = {m["market_id"] for m in markets}
 
         # Pass 1 - Question filter
-        market_batches = list(self._chunk_markets(markets, self.batch_size))
+        market_batches = list(self._chunk_markets(markets, self.question_batch_size))
         question_filter_batch_tasks = [self._question_batch(batch) for batch in market_batches]
         question_filter_raw_results = await asyncio.gather(*question_filter_batch_tasks)
 
@@ -60,21 +56,22 @@ class MarketClassifier:
 
 
         # Pass 2 - Description reasoning
-        description_pass_tasks = []
-        for market in relevant_markets:
-            description_pass_tasks.append(self._description_pass(market))
-        
-        description_pass_raw_results = await asyncio.gather(*description_pass_tasks)
+        description_batches = list(self._chunk_markets(relevant_markets, self._description_batch_size))
+        description_batch_tasks = [self._description_batch(batch) for batch in description_batches]
+        description_pass_raw_results = await asyncio.gather(*description_batch_tasks)
 
         description_results_map = {}
         successful_analyses_count = 0
-        for i, res in enumerate(description_pass_raw_results):
-            market_id = relevant_markets[i]["market_id"]
-            if isinstance(res, dict) and "error" not in res:
-                description_results_map[market_id] = res
-                successful_analyses_count += 1
+        for batch_results in description_pass_raw_results:
+            if isinstance(batch_results, list):
+                for res in batch_results:
+                    if isinstance(res, dict) and "market_id" in res and "error" not in res:
+                        description_results_map[res["market_id"]] = res
+                        successful_analyses_count += 1
+                    else:
+                        logger.warning(f"Description batch result missing or errored: {res}")
             else:
-                logger.warning(f"Description pass failed for market {market_id}: {res}")
+                logger.error(f"Unexpected description batch result format: {batch_results}")
 
         # Validate market_ids against known relevant markets
         valid_relevant_ids = {m["market_id"] for m in relevant_markets}
@@ -133,24 +130,32 @@ class MarketClassifier:
                 logger.error(f"Question batch failed for markets {market_ids}: {e}")
                 return []
 
-    async def _description_pass(self, market: dict) -> dict:
+    async def _description_batch(self, batch: list[dict]) -> list[dict]:
         async with self.semaphore2:
             system_prompt = DESCRIPTION_SYSTEM_PROMPT
 
-            prompt = self._get_description_prompt(market)
+            prompt_parts = []
+            for market in batch:
+                prompt_parts.append(self._get_description_prompt(market))
+                prompt_parts.append("-" * 30 + "\n")
+            prompt = "List of Markets to Analyze:\n" + "".join(prompt_parts)
 
             try:
                 response = await self.llm.get_json_completion(prompt, system=system_prompt)
-                if isinstance(response, dict):
-                    if "market_id" not in response:
-                        response["market_id"] = market["market_id"]
+                if isinstance(response, list):
+                    for res in response:
+                        if 'confidence_reason' not in res:
+                            res['confidence_reason'] = None
+                        if 'market_id' not in res:
+                            logger.warning(f"Description batch result missing 'market_id': {res}")
                     return response
                 else:
-                    logger.error(f"Description pass for market {market.get('market_id')} expected dict, got {type(response)}: {response}")
-                    return {"market_id": market["market_id"], "error": "Unexpected LLM response format"}
+                    logger.error(f"Description batch expected list, got {type(response)}: {response}")
+                    return []
             except Exception as e:
-                logger.error(f"Description pass failed for market {market.get('market_id')}: {e}")
-                return {"market_id": market["market_id"], "error": str(e)}
+                market_ids = [m['market_id'] for m in batch]
+                logger.error(f"Description batch failed for markets {market_ids}: {e}")
+                return []
 
     @staticmethod
     def _chunk_markets(markets: list[dict], batch_size: int):
