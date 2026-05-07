@@ -2,7 +2,6 @@ import logging
 import json
 from typing import Any
 from src.pss.llm.gemini_client import GeminiAPIClient
-from src.pss.llm.holdings import BIT_CAPITAL_HOLDINGS
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,3 @@ class LLMClient:
         except Exception as e:
             logger.error(f"Unexpected error in LLMClient: {e}")
             raise
-
-    def get_holdings_context(self) -> str:
-        return json.dumps(BIT_CAPITAL_HOLDINGS, indent=2)

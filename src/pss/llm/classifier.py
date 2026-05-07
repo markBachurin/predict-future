@@ -1,6 +1,7 @@
 import logging
 import asyncio
 from src.pss.llm.client import LLMClient
+from src.pss.llm.prompts import QUESTION_SYSTEM_PROMPT, DESCRIPTION_SYSTEM_PROMPT
 from src.pss.storage.postgres.client import PostgresClient
 from pss_config.config import settings
 import math
@@ -89,33 +90,7 @@ class MarketClassifier:
 
     async def _question_batch(self, batch: list[dict]) -> list[dict]:
         async with self.semaphore1:
-            system_prompt = (
-                "You are an aggressive gatekeeper for BIT Capital. "
-                "Your ONLY job is to determine if a market is RELEVANT to BIT Capital's holdings "
-                "based SOLELY on its QUESTION and TAGS. Be extremely strict and ruthlessly filter. "
-                "When in doubt, mark NOT relevant. False negatives are acceptable. False positives waste resources.\n\n"
-                "A market is RELEVANT only if its question or tags DIRECTLY name ONE of the following:\n"
-                "1. A ticker from BIT_CAPITAL_HOLDINGS (e.g., NVDA, BTC, TSMC, ETH).\n"
-                "2. A sector from BIT_CAPITAL_HOLDINGS (e.g., Semiconductors, Crypto Mining, AI Infrastructure).\n"
-                "3. A macro theme from BIT_CAPITAL_HOLDINGS (e.g., Fed Rate Cuts, Semiconductor Export Controls).\n"
-                "   NOTE: Macro theme matches must be EXACT. 'EU Tariffs on Chinese EVs' requires EU tariffs AND Chinese EVs specifically - US tariffs, general trade policy, or non-EV goods do NOT qualify.\n\n"
-                "A market is NOT relevant if:\n"
-                "- The connection requires more than one inferential leap.\n"
-                "- It concerns general topics not directly linked to the holdings.\n"
-                "- The information is vague or too broad.\n\n"
-                "CRITICAL FORMATTING RULES:\n"
-                "1. Your ENTIRE response MUST be a raw JSON array starting with '[' and ending with ']'.\n"
-                "2. Do NOT include markdown code fences (no ```json or ```).\n"
-                "3. Do NOT include any text or commentary outside the array.\n"
-                "4. Do NOT call any tools - only return JSON.\n\n"
-                f"BIT_CAPITAL_HOLDINGS:\n{self.llm.get_holdings_context()}\n\n"
-                "Return a JSON array where each object contains:\n"
-                "- 'market_id' (str)\n"
-                "- 'is_relevant' (bool)\n"
-                "- 'confidence' (float 0.0 - 1.0)\n"
-                "- 'reason' (one sentence: why this market is relevant or not)\n"
-                "- 'confidence_reason' (one sentence: why this confidence score was chosen)\n"
-            )
+            system_prompt = QUESTION_SYSTEM_PROMPT
 
             prompt_parts = []
             for market in batch:
@@ -141,33 +116,7 @@ class MarketClassifier:
 
     async def _description_pass(self, market: dict) -> dict:
         async with self.semaphore2:
-            system_prompt = (
-                "You are an expert financial analyst for BIT Capital, specializing in prediction market analysis. "
-                "The market provided has already been filtered as relevant to BIT Capital's interests. "
-                "Your primary task is to deeply analyze this single market (question, description, probability, liquidity, price changes) "
-                "and determine its connection to BIT Capital's holdings, assess its signal strength and direction, and evaluate its urgency. "
-                "You must map the market event to specific tickers and sectors from the provided BIT_CAPITAL_HOLDINGS. "
-                "Commit to a clear direction (bullish/bearish/neutral) and do NOT default to neutral if a direction can be inferred. "
-                "Assess urgency: high probability (>0.7) combined with rising price indicates a strong signal; "
-                "low probability (<0.3) with falling price suggests a weak or contrarian signal. "
-                "Price changes (24hr and weekly) are crucial indicators of market momentum and urgency.\n\n"
-                "CRITICAL FORMATTING RULES:\n"
-                "1. Your ENTIRE response MUST be a raw JSON object starting with '{' and ending with '}'.\n"
-                "2. Do NOT include markdown code fences (no ```json or ```).\n"
-                "3. Do NOT include any text or commentary outside the object.\n"
-                "4. Do NOT call any tools - only return JSON.\n\n"
-                f"BIT_CAPITAL_HOLDINGS:\n{self.llm.get_holdings_context()}\n\n"
-                "Return a JSON object containing these fields:\n"
-                "- 'market_id' (str): The unique identifier of the market. \n"
-                "- 'tickers' (list[str]): At least one ticker from BIT_CAPITAL_HOLDINGS that is directly impacted. \n"
-                "- 'sectors' (list[str]): At least one sector from BIT_CAPITAL_HOLDINGS that is directly impacted. \n"
-                "- 'direction' (str): 'bullish', 'bearish', or 'neutral' (commit to one). \n"
-                "- 'llm_confidence' (float): Your confidence in the analysis, from 0.0 to 1.0. \n"
-                "- 'confidence_reason' (str): A single sentence explaining the chosen confidence level. \n"
-                "- 'foundational_details' (str): A single sentence summarizing the core facts of the market. \n"
-                "- 'circumstances' (str): A single sentence describing the macro or political triggers at play. \n"
-                "- 'reasoning' (str): 2-3 sentences detailing the causal chain from the market event to the identified tickers/sectors and their expected impact. \n"
-            )
+            system_prompt = DESCRIPTION_SYSTEM_PROMPT
 
             prompt = self._get_description_prompt(market)
 
