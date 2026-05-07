@@ -86,6 +86,31 @@ class MarketClassifier:
             self.pg.insert_pass_results(description_results_map, pass_number=2)
             logger.info(f"Inserted {len(description_results_map)} Pass 2 results.")
 
+        classifications = []
+        for market in relevant_markets:
+            market_id = market["market_id"]
+            analysis_result = description_results_map.get(market_id)
+
+            if analysis_result:
+                try:
+                    classification_dict = self._get_classifications_dict(market_id, analysis_result, market)
+                    classification_dict["weighted_score"] = self._calculate_weighted_score(market, classification_dict)
+                    classifications.append(classification_dict)
+                except Exception as e:
+                    logger.error(f"Error creating classification for market {market_id} from analysis result: {e}. Result: {analysis_result}")
+            else:
+                logger.warning(f"No successful analysis result found for market {market_id} in Pass 2. Skipping classification.")
+
+        if classifications:
+            self.pg.insert_classifications(classifications)
+            logger.info(f"Inserted {len(classifications)} final classifications.")
+        else:
+            logger.info("No classifications to insert after Pass 2.")
+
+        # Mark all initial markets as processed
+        self.pg.mark_processed(all_raw_market_ids)
+        logger.info(f"Marked {len(all_raw_market_ids)} raw markets as processed.")
+
     # private
 
     async def _question_batch(self, batch: list[dict]) -> list[dict]:
@@ -225,3 +250,19 @@ class MarketClassifier:
             f"Price change 24h: {market.get('price_change_day', 0.0)}\n"
             f"Price change week: {market.get('price_change_week', 0.0)}\n"
         )
+
+    @staticmethod
+    def _get_classifications_dict(market_id: str, analysis_result: dict | None, market: dict) -> dict:
+        return {
+            "market_id": market_id,
+            "is_relevant": True,
+            "tickers": analysis_result.get("tickers"),
+            "sectors": analysis_result.get("sectors"),
+            "direction": analysis_result.get("direction"),
+            "llm_confidence": analysis_result.get("llm_confidence"),
+            "confidence_reason": analysis_result.get("confidence_reason"),
+            "foundational_details": analysis_result.get("foundational_details"),
+            "circumstances": analysis_result.get("circumstances"),
+            "reasoning": analysis_result.get("reasoning"),
+            "question_filter_confidence": market.get("question_filter_confidence")
+        }
