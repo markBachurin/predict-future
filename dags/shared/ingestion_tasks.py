@@ -11,7 +11,7 @@ def task_fetch_and_archive(fetcher: BaseFetcher, **context):
     keys: list[str] = S3Client().upload_markets(markets)
 
     logger.info(f"Fetched {len(markets)} markets, archived to {len(keys)} batches")
-    context["ti"].xcom_push(key="s3_key", value=keys)  # just a string — safe
+    context["ti"].xcom_push(key="s3_key", value=keys)
 
 def task_validate(**context):
     from src.pss.validation.models import validate_markets
@@ -31,13 +31,10 @@ def task_load_postgres(**context):
     pg = PostgresClient()
     logger.info(f"Downloaded {len(validated)} validated markets")
     raw_ids = pg.upload_markets(validated)
-    logger.info(f"upload_markets returned {len(raw_ids)} raw_ids")
     if raw_ids:
-        market_ids = pg.upsert_markets(raw_ids, validated, True)
-        pg.insert_snapshots(market_ids, validated)
+        logger.info(f"upload_markets returned {len(raw_ids)} raw_ids")
     else:
-        logger.error(f"Error upserting markets")
-        raise RuntimeError("upload_markets returned empty raw_ids")
+        logger.error(f"Error uploading markets")
 
 
 def ensure_schema():
