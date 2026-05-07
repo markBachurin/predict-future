@@ -80,23 +80,6 @@ def _upsert_markets(raw_ids: list[str], markets: list[ValidatedMarket], is_valid
             )
             return [str(row[0]) for row in rows]
 
-def _insert_snapshots(market_ids: list[str], markets: list[ValidatedMarket], connection) -> None:
-    if not markets:
-        return
-
-    with connection as conn:
-        with conn.cursor() as cur:
-            execute_values(
-                cur,
-                """
-                    INSERT INTO market_snapshots (market_id, probability, outcome_probabilities, volume, volume24hr, price_change_day, price_change_week)
-                    VALUES %s
-                """,
-                [
-                    (market_ids[i], m.probability, m.outcome_probabilities, m.volume, m.volume24hr, m.price_change_day, m.price_change_week)
-                    for i, m in enumerate(markets)
-                ]
-            )
 
 def _get_markets_for_classification(connection) -> list[dict]:
     with connection as conn:
@@ -226,7 +209,6 @@ def _drop_db(connection) -> None:
             cur.execute("""
                 DROP TABLE IF EXISTS llm_classifications;
                 DROP TABLE IF EXISTS llm_pass_results;
-                DROP TABLE IF EXISTS market_snapshots;
                 DROP TABLE IF EXISTS markets;
                 DROP TABLE IF EXISTS raw_markets;
             """)

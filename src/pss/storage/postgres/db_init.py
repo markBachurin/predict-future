@@ -48,18 +48,6 @@ CREATE INDEX IF NOT EXISTS idx_markets_expiry          ON markets (expiry);
 CREATE INDEX IF NOT EXISTS idx_markets_is_valid        ON markets (is_valid);
 CREATE INDEX IF NOT EXISTS idx_markets_volume24hr      ON markets (volume24hr);
 
-CREATE TABLE IF NOT EXISTS market_snapshots (
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    market_id         UUID         NOT NULL REFERENCES markets(id),
-    probability       NUMERIC(5,4),
-    outcome_probabilities NUMERIC(5,4)[],
-    volume            NUMERIC(18,2),
-    volume24hr        NUMERIC(18,2),
-    price_change_day  NUMERIC(8,4),
-    price_change_week NUMERIC(8,4),
-    recorded_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_snapshots_market_time ON market_snapshots (market_id, recorded_at);
 
 CREATE TABLE IF NOT EXISTS llm_classifications (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
