@@ -1,5 +1,10 @@
 import logging
 import asyncio
+from tabnanny import check
+
+from pandas.core.dtypes.inference import is_float
+from pyparsing import lineStart
+
 from src.pss.llm.client import LLMClient
 from src.pss.llm.prompts import QUESTION_SYSTEM_PROMPT, DESCRIPTION_SYSTEM_PROMPT
 from src.pss.storage.postgres.client import PostgresClient
@@ -23,6 +28,7 @@ class MarketClassifier:
         if not markets:
             logger.info("No new markets to classify.")
             return
+        markets = self._filter_out_irrelevant_markets(markets)
 
         logger.info(f"Starting to classify {len(markets)} markets")
         all_market_ids = {m["market_id"] for m in markets}
@@ -246,3 +252,7 @@ class MarketClassifier:
                 logger.warning(f"No successful analysis result found for market {market_id} in Pass 2. Skipping classification.")
 
         return classifications
+
+    @staticmethod
+    def _filter_out_irrelevant_markets(markets: list[dict]) -> list[dict]:
+        return [m for m in markets if m.get("is_relevant") is None or m.get("is_relevant") is True ]

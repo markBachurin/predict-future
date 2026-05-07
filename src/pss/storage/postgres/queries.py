@@ -64,6 +64,7 @@ def _upsert_markets(raw_ids: list[str], markets: list[ValidatedMarket], is_valid
                         resolution_source = EXCLUDED.resolution_source, 
                         ticker = EXCLUDED.ticker, 
                         restricted = EXCLUDED.restricted, 
+                        processed = false,
                         updated_at = now()
                     RETURNING id
                 """,
@@ -85,7 +86,7 @@ def _get_markets_for_classification(connection) -> list[dict]:
     with connection as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
-                SELECT 
+                SELECT
                     m.id as market_id,
                     m.question,
                     m.description,
@@ -99,12 +100,12 @@ def _get_markets_for_classification(connection) -> list[dict]:
                     m.liquidity,
                     m.outcomes,
                     m.outcome_probabilities,
-                    r.id as raw_market_id
+                    r.id as raw_market_id,
+                    lpr.is_relevant
                 FROM markets m
                 JOIN raw_markets r ON m.raw_market_id = r.id
-                LEFT JOIN llm_classifications lc ON m.id = lc.market_id
+                LEFT JOIN llm_pass_results lpr ON m.id = lpr.market_id AND lpr.pass_number = 1
                 WHERE m.processed = false
-                AND lc.id IS NULL
             """)
             return [dict(row) for row in cur.fetchall()]
 
@@ -116,7 +117,7 @@ def _mark_processed(market_ids: list[str], connection) -> None:
     with connection as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE markets SET processed = true WHERE id = ANY(%s)",
+                "UPDATE markets SET processed = true WHERE id = ANY(%s::uuid[])",
                 (market_ids,)
             )
 
