@@ -76,9 +76,10 @@ CREATE TABLE IF NOT EXISTS llm_pass_results (
     pass_number INT NOT NULL,
     is_relevant BOOLEAN,
     confidence FLOAT,
-    confidence_reason   TEXT,
+    confidence_reason TEXT,
     reason TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (market_id, pass_number)
 );
 CREATE INDEX IF NOT EXISTS idx_llm_pass_results_market_id ON llm_pass_results (market_id);
 CREATE INDEX IF NOT EXISTS idx_llm_pass_results_pass_number ON llm_pass_results (pass_number);

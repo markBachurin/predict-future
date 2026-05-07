@@ -200,6 +200,11 @@ def _insert_pass_results(results_map: dict, pass_number: int, connection) -> Non
                     INSERT INTO llm_pass_results 
                         (market_id, pass_number, is_relevant, confidence, confidence_reason, reason)
                     VALUES %s
+                    ON CONFLICT (market_id, pass_number) DO UPDATE SET
+                        is_relevant = EXCLUDED.is_relevant,
+                        confidence = EXCLUDED.confidence,
+                        confidence_reason = EXCLUDED.confidence_reason,
+                        reason = EXCLUDED.reason
                 """,
                 rows
             )
