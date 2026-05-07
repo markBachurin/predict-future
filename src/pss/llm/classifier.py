@@ -25,7 +25,7 @@ class MarketClassifier:
             return
 
         logger.info(f"Starting to classify {len(markets)} markets")
-        all_market_ids = [m["market_id"] for m in markets]
+        all_market_ids = {m["market_id"] for m in markets}
 
         # Pass 1 - Question filter
         market_batches = list(self._chunk_markets(markets, self.batch_size))
@@ -33,6 +33,12 @@ class MarketClassifier:
         question_filter_raw_results = await asyncio.gather(*question_filter_batch_tasks)
 
         question_filter_results_map = self._get_question_filter_results_map(question_filter_raw_results)
+
+        question_filter_results_map = {
+            k: v for k, v in question_filter_results_map.items()
+            if k in all_market_ids
+        }
+
 
         # Insert results of the first pass into the database
         self.pg.insert_pass_results(question_filter_results_map, pass_number=1)
@@ -63,6 +69,13 @@ class MarketClassifier:
                 successful_analyses_count += 1
             else:
                 logger.warning(f"Description pass failed for market {market_id}: {res}")
+
+        # Validate market_ids against known relevant markets
+        valid_relevant_ids = {m["market_id"] for m in relevant_markets}
+        description_results_map = {
+            k: v for k, v in description_results_map.items()
+            if k in valid_relevant_ids
+        }
 
         logger.info(f"Description pass: {len(relevant_markets)} relevant markets -> {successful_analyses_count} successful analyses.")
 
