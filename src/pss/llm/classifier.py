@@ -166,6 +166,7 @@ class MarketClassifier:
     def _get_description_prompt(market: dict) -> str:
         # Pass 2 - focused on signal strength and analysis
         return (
+            f"MARKET_ID: {market['market_id']}\n"
             f"Question: {market['question']}\n"
             f"Description: {market.get('description', '')}\n"
             f"Probability: {market.get('probability')}\n"
