@@ -9,11 +9,9 @@ CREATE TABLE IF NOT EXISTS raw_markets (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source      VARCHAR(20)  NOT NULL,
     external_id VARCHAR(255) NOT NULL,
-    processed   BOOLEAN      NOT NULL DEFAULT false,
     ingested_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (source, external_id, ingested_at)
 );
-CREATE INDEX IF NOT EXISTS idx_raw_markets_processed ON raw_markets (processed, ingested_at);
 CREATE INDEX IF NOT EXISTS idx_raw_markets_source    ON raw_markets (source);
 
 CREATE TABLE IF NOT EXISTS markets (
@@ -41,12 +39,14 @@ CREATE TABLE IF NOT EXISTS markets (
     is_valid          BOOLEAN       NOT NULL DEFAULT true,
     created_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    processed         BOOLEAN       NOT NULL DEFAULT false,
     UNIQUE (source, external_id)
 );
 CREATE INDEX IF NOT EXISTS idx_markets_source_category ON markets (source, category);
 CREATE INDEX IF NOT EXISTS idx_markets_expiry          ON markets (expiry);
 CREATE INDEX IF NOT EXISTS idx_markets_is_valid        ON markets (is_valid);
 CREATE INDEX IF NOT EXISTS idx_markets_volume24hr      ON markets (volume24hr);
+CREATE INDEX IF NOT EXISTS idx_markets_processed       ON markets (processed);
 
 
 CREATE TABLE IF NOT EXISTS llm_classifications (
@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS llm_classifications (
     llm_confidence      NUMERIC(5,4),
     confidence_reason   TEXT, 
     weighted_score      NUMERIC(5,4),
+    reported            BOOLEAN      NOT NULL DEFAULT false,
     classified_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (market_id)
 );

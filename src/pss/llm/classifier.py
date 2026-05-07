@@ -25,7 +25,7 @@ class MarketClassifier:
             return
 
         logger.info(f"Starting to classify {len(markets)} markets")
-        all_raw_market_ids = [m["raw_market_id"] for m in markets]
+        all_market_ids = [m["market_id"] for m in markets]
 
         # Pass 1 - Question filter
         market_batches = list(self._chunk_markets(markets, self.batch_size))
@@ -43,7 +43,7 @@ class MarketClassifier:
 
         if not relevant_markets:
             logger.info("No relevant markets after question filter. Marking all initial markets as processed and returning.")
-            self.pg.mark_processed(all_raw_market_ids)
+            self.pg.mark_processed(all_market_ids)
             return
 
 
@@ -83,8 +83,8 @@ class MarketClassifier:
             logger.error(f"Failed to persist classifications: {e}")
             raise
 
-        self.pg.mark_processed(all_raw_market_ids)
-        logger.info(f"Marked {len(all_raw_market_ids)} markets as processed.")
+        self.pg.mark_processed(all_market_ids)
+        logger.info(f"Marked {len(all_market_ids)} markets as processed.")
 
     # private
 

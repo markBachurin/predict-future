@@ -103,21 +103,21 @@ def _get_markets_for_classification(connection) -> list[dict]:
                 FROM markets m
                 JOIN raw_markets r ON m.raw_market_id = r.id
                 LEFT JOIN llm_classifications lc ON m.id = lc.market_id
-                WHERE r.processed = false
+                WHERE m.processed = false
                 AND lc.id IS NULL
             """)
             return [dict(row) for row in cur.fetchall()]
 
 
-def _mark_processed(raw_market_ids: list[str], connection) -> None:
-    if not raw_market_ids:
+def _mark_processed(market_ids: list[str], connection) -> None:
+    if not market_ids:
         return
 
     with connection as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE raw_markets SET processed = true WHERE id IN %s",
-                (tuple(raw_market_ids),)
+                "UPDATE markets SET processed = true WHERE id = ANY(%s)",
+                (market_ids,)
             )
 
 
