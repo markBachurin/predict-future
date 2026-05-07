@@ -164,17 +164,41 @@ class MarketClassifier:
 
     @staticmethod
     def _calculate_weighted_score(market: dict, analysis: dict) -> float:
+        VOL_MIN = 8.53
+        VOL_MAX = 13.24
+        VOL_RANGE = VOL_MAX - VOL_MIN
+
         llm_conf = Decimal(str(analysis.get("llm_confidence") or 0.0))
-        vol = max(market.get("volume", 0.0), settings.polymarket_volume_min)
 
+        vol = max(float(market.get("volume") or 0.0), settings.polymarket_volume_min)
         log_vol = math.log(float(vol))
-        normal_vol_float = (log_vol - 0.0) / (16.1 - 10.8)
-        normal_vol = Decimal(str(max(0, min(1.0, normal_vol_float))))
+        normal_vol = Decimal(str(max(0.0, min(1.0, (log_vol - 10.83) / (16.77 - 10.83)))))
 
-        price_change = abs(Decimal(market.get("price_change_day") or 0.0))
-        norm_price = min(price_change / Decimal('0.1'), Decimal('1.0'))
+        vol24 = max(float(market.get("volume24hr") or 0.0), settings.polymarket_volume_min)
+        log_vol24 = math.log(float(vol24))
 
-        score = (llm_conf * Decimal('0.4')) + (normal_vol * Decimal('0.4')) + (norm_price * Decimal('0.2'))
+        liquidity = max(float(market.get("liquidity") or 0.0), settings.polymarket_volume_min)
+        log_liq = math.log(float(liquidity))
+
+
+        normal_vol24 = Decimal(str(max(0.0, min(1.0, (log_vol24 - VOL_MIN) / VOL_RANGE))))
+        normal_liq = Decimal(str(max(0.0, min(1.0, (log_liq - VOL_MIN) / VOL_RANGE))))
+
+        price_change_day = abs(Decimal(str(market.get("price_change_day") or 0.0)))
+        norm_price_day = min(price_change_day / Decimal('0.1'), Decimal('1.0'))
+
+        price_change_week = abs(Decimal(str(market.get("price_change_week") or 0.0)))
+        norm_price_week = min(price_change_week / Decimal('0.15'), Decimal('1.0'))
+
+        score = (
+                (llm_conf * Decimal('0.30')) +
+                (normal_vol * Decimal('0.20')) +
+                (normal_vol24 * Decimal('0.15')) +
+                (normal_liq * Decimal('0.15')) +
+                (norm_price_day * Decimal('0.12')) +
+                (norm_price_week * Decimal('0.08'))
+        )
+
         return round(float(score), 4)
 
     @staticmethod
