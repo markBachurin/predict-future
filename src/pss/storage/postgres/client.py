@@ -21,8 +21,8 @@ class PostgresClient(Client):
     def get_markets_for_classification(self) -> list[dict]:
         return _get_markets_for_classification(self._get_conn())
 
-    def mark_processed(self, market_ids: list[str]) -> None:
-        return _mark_processed(market_ids, self._get_conn())
+    def mark_processed(self, market_ids: set[str]) -> None:
+        return _mark_processed(list(market_ids), self._get_conn())
 
     def insert_classifications(self, results: list[dict]) -> None:
         return _insert_classifications(results, self._get_conn())
