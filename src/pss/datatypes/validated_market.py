@@ -16,8 +16,8 @@ class ValidatedMarket(BaseModel):
     category: str | None
     expiry: datetime | None
     volume24hr: float
-    price_change_day: float | None
-    price_change_week: float | None
+    price_change_day: float = 0.0
+    price_change_week: float = 0.0
     liquidity: float | None
     tags : list[str] = []
     market_type: str | None = None
@@ -26,6 +26,16 @@ class ValidatedMarket(BaseModel):
     resolution_source: str | None = None
     ticker: str | None = None
     restricted: bool = False
+
+    @field_validator("price_change_day", "price_change_week", mode="before")
+    @classmethod
+    def coerce_price_change(cls, v) -> float:
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
 
     @field_validator("source")
     @classmethod
