@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     gemini_api_key: str
     llm_model : str = "gemini-2.5-flash"
     llm_temperature : float = 0.0
-    gatekeep_thread_limit : int = 10
-    reason_thread_limit : int = 10
+    question_thread_limit : int = 5
+    description_thread_limit : int = 5
 
     #p pipeline
     ingestion_interval_minutes: int

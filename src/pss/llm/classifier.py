@@ -14,8 +14,8 @@ class MarketClassifier:
     def __init__(self, llm_client: LLMClient, pg_client: PostgresClient, batch_size: int = 10):
         self.llm = llm_client
         self.pg = pg_client
-        self.semaphore1 = asyncio.Semaphore(settings.gatekeep_thread_limit)
-        self.semaphore2 = asyncio.Semaphore(settings.reason_thread_limit)
+        self.semaphore1 = max(1, asyncio.Semaphore(settings.question_thread_limit))
+        self.semaphore2 = max(1,asyncio.Semaphore(settings.description_thread_limit))
         self.batch_size = batch_size
 
     async def classify_all(self):
