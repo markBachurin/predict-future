@@ -30,9 +30,6 @@ services:
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY}
       PYTHONPATH: /opt/airflow
     entrypoint: >
-      /bin/bash -c "
-        airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@gmail.com
-      "
       entrypoint: >
         /bin/bash -c "
           airflow db migrate &&
