@@ -18,8 +18,8 @@ def _upload_markets(markets: list[Market], connection) -> list[str]:
                 """
                     INSERT INTO raw_markets (source, external_id)
                     VALUES %s
-                    ON CONFLICT (source, external_id, ingested_at) DO UPDATE
-                        SET source = EXCLUDED.source
+                    ON CONFLICT (source, external_id) DO UPDATE
+                        SET ingested_at = NOW()
                     RETURNING id
                 """,
                 [
