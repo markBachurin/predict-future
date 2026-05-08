@@ -9,12 +9,15 @@ from datetime import timedelta, datetime
 from dags.shared.ingestion_tasks import ensure_schema
 import asyncio
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 def classify(**context):
     pg_client = PostgresClient()
     llm_client = LLMClient()
     classifier = MarketClassifier(llm_client, pg_client)
+    classifier.semaphore1 = asyncio.Semaphore(1)
+    classifier.semaphore2 = asyncio.Semaphore(1)
+
     return asyncio.run(classifier.classify_all())
 
 
