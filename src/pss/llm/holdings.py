@@ -42,22 +42,23 @@ BIT_CAPITAL_HOLDINGS = {
         "EU Tariffs on Chinese EVs",
     ],
     "relevant_tags": [
-        "ai", "anthropic", "claude", "openai", "deepseek", "grok", "gpt-5",
-        "google", "automation", "amodei", "nvda", "tech", "bitcoin", "ethereum",
-        "crypto", "solana", "dogecoin", "token", "airdrops", "fed", "fomc",
-        "inflation", "rates", "cpi", "powell", "chair", "macro", "s&p", "spx",
-        "gold", "silver", "oil", "crude", "gas", "hormuz", "ships", "tariffs",
-        "sanctions", "embargo", "china", "taiwan", "nuclear", "military",
-        "semiconductor", "chips", "export", "controls", "hyperscaler",
-        "aws", "bitcoin", "btc", "eth", "mining", "iren", "hut", "wulf", "riot", "bitf",
-        "tsmc", "amd", "mu", "micron", "amzn", "amazon",
-        "etf", "spot", "regulation", "sec", "defi", "staking",
-        "ev", "auto", "european", "eu",
-        "health", "healthcare", "insurance", "aca",
-        "trade", "geopolitics", "supply", "chain",
-        "interest", "reserve", "federal", "bank",
-        "spacex", "tesla", "tsla", "elon", "musk",
-    ]
+    # AI
+    "ai", "anthropic", "claude", "openai", "deepseek", "grok", "gpt-5",
+    "google", "automation", "amodei",
+    # Semiconductors
+    "nvda", "tsmc", "amd", "mu", "micron", "semiconductor", "chips",
+    # Crypto
+    "bitcoin", "btc", "ethereum", "eth", "crypto", "solana", "dogecoin",
+    "token", "airdrops", "defi", "staking", "mining",
+    # Crypto miners
+    "iren", "hut", "wulf", "riot", "bitf",
+    # Hyperscalers
+    "aws", "amzn", "amazon", "hyperscaler",
+    # Trade / Geopolitics
+    "tariffs", "sanctions", "embargo", "china", "taiwan", "nuclear",
+    # Crypto macro
+    "etf",
+]
 }
 
 
