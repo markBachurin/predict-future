@@ -33,6 +33,28 @@ docker compose up -d airflow-webserver airflow-scheduler
 
 Once the containers are running, you can access the Airflow UI at `http://localhost:8080` using the credentials defined in your `.env` file (`AIRFLOW_ADMIN` / `AIRFLOW_ADMIN_PASSWORD`).
 
+## Web Interface (Streamlit)
+
+A professional UI is provided to browse signals and view BIT Capital's portfolio focus.
+
+### 1. Launch the UI locally
+Ensure you have the dependencies installed:
+```bash
+pip install streamlit pandas
+```
+Then run the app:
+```bash
+streamlit run streamlit_app.py
+```
+The UI will be available at `http://localhost:8501`.
+
+### 2. Stream using ngrok
+To share the UI with the BIT Capital team:
+```bash
+ngrok http 8501
+```
+Copy the "Forwarding" URL (e.g., `https://xxxx-xxxx.ngrok-free.app`) and include it in your submission.
+
 ## Architecture
 
 For a detailed deep dive into the system design, data flow, and scoring models, please refer to [ARCHITECTURE.md](./ARCHITECTURE.md).
