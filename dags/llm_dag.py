@@ -25,7 +25,7 @@ with DAG (
     dag_id="pss_classify_markets",
     default_args=DAG_DEFAULT_ARGS,
     description= "Layer 2 - classify all unprocessed ingested markets",
-    schedule_interval="0,30 * * * *",
+    schedule_interval="30 */4 * * *",
     start_date = datetime(2026,1,1),
     catchup=False,
     tags=["pss", "classification"]
