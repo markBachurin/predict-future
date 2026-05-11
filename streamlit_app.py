@@ -37,7 +37,7 @@ def load_data():
                 lc.classified_at
             FROM markets m
             INNER JOIN llm_classifications lc ON m.id = lc.market_id
-            WHERE lc.is_relevant = true
+            WHERE lc.is_relevant = true and lc.weighted_score>0.6
             ORDER BY lc.weighted_score DESC;
         """
         return pd.read_sql(query, conn)
@@ -49,7 +49,7 @@ def load_stats():
             total_markets = cur.fetchone()[0]
             cur.execute("SELECT count(*) FROM markets WHERE processed = false")
             unprocessed = cur.fetchone()[0]
-            cur.execute("SELECT count(*) FROM llm_classifications WHERE is_relevant = true")
+            cur.execute("SELECT count(*) FROM llm_classifications WHERE is_relevant = true and weighted_score>{settings.minimal_weighted_score}")
             relevant = cur.fetchone()[0]
             return total_markets, unprocessed, relevant
 

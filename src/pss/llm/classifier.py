@@ -47,7 +47,7 @@ class MarketClassifier:
 
         relevant_markets = self._get_relevant_markets(markets, question_filter_results_map)
 
-        logger.info(f"Question filter: {len(markets)} -> {len(relevant_markets)} relevant markets (confidence > 0.7).")
+        logger.info(f"Question filter: {len(markets)} -> {len(relevant_markets)} relevant markets (confidence > {settings.question_llm_conf_min}).")
 
         if not relevant_markets:
             logger.info("No relevant markets after question filter. Marking all initial markets as processed and returning.")
@@ -259,7 +259,7 @@ class MarketClassifier:
         for market in markets:
             market_id = market["market_id"]
             result = question_filter_results_map.get(market_id, {'is_relevant': False, "confidence": 0.0})
-            if result.get("is_relevant") and result.get("confidence", 0) > 0.7:
+            if result.get("is_relevant") and result.get("confidence", 0) > settings.question_llm_conf_min:
                 market["question_filter_confidence"] = result.get("confidence")
                 relevant_markets.append(market)
         return relevant_markets
@@ -274,7 +274,12 @@ class MarketClassifier:
                 try:
                     classification_dict = self._get_classifications_dict(market_id, analysis_result, market)
                     classification_dict["weighted_score"] = self._calculate_weighted_score(market, classification_dict)
-                    classifications.append(classification_dict)
+                    if classification_dict["weighted_score"] >= settings.minimal_weighted_score:
+                        classifications.append(classification_dict)
+                    else:
+                        logger.info(f"Small weighted score: {classification_dict['weighted_score']} , required minimal weighted score : {settings.minimal_weighted_score}")
+                        logger.debug(f"Market {market_id}: Calculated weighted_score={classification_dict['weighted_score']}, minimal_weighted_score={settings.minimal_weighted_score}")
+                        continue
                 except Exception as e:
                     logger.error(f"Error creating classification for market {market_id} from analysis result: {e}. Result: {analysis_result}")
             else:

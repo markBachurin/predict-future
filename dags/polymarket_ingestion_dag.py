@@ -19,7 +19,7 @@ with DAG (
     dag_id = "pss_polymarket_ingestion",
     default_args=DAG_DEFAULT_ARGS,
     description="Layer 1 - ingest active markets from Polymarket",
-    schedule_interval="0 * * * *",
+    schedule_interval="0 */4 * * *",
     start_date=datetime(2026,1,1),
     catchup=False,
     tags=["pss", "ingestion"],

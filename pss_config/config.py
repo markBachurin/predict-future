@@ -33,10 +33,12 @@ class Settings(BaseSettings):
 
     # LLM
     gemini_api_key: str
-    llm_model : str = "gemini-2.5-flash-light"
+    llm_model : str = "gemini-2.5-flash-lite"
     llm_temperature : float = 0.0
     question_thread_limit : int = 5
     description_thread_limit : int = 5
+    question_llm_conf_min : float = 0.85
+    minimal_weighted_score: float = 0.6
 
     #p pipeline
     ingestion_interval_minutes: int
