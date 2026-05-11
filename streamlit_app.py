@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from src.pss.storage.postgres.client import PostgresClient
 from src.pss.llm.holdings import BIT_CAPITAL_HOLDINGS
+from pss_config.config import settings
 
 st.set_page_config(page_title="PSS - Polymarket Signal Scanner", layout="wide")
 
@@ -49,7 +50,7 @@ def load_stats():
             total_markets = cur.fetchone()[0]
             cur.execute("SELECT count(*) FROM markets WHERE processed = false")
             unprocessed = cur.fetchone()[0]
-            cur.execute("SELECT count(*) FROM llm_classifications WHERE is_relevant = true and weighted_score>{settings.minimal_weighted_score}")
+            cur.execute("SELECT count(*) FROM llm_classifications WHERE is_relevant = true and weighted_score > %s", (settings.minimal_weighted_score,))
             relevant = cur.fetchone()[0]
             return total_markets, unprocessed, relevant
 
